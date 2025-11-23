@@ -21,6 +21,9 @@
 #define POTENTIOMETER_PIN3 A2
 #define POTENTIOMETER_PIN4 A3
 
+// USB CDC (Serial) for debugging - must be declared to exist
+Adafruit_USBD_CDC USBSerial;
+
 // USB MIDI setup
 Adafruit_USBD_MIDI usbd_midi;
 MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usbd_midi, USB_MIDI);
@@ -39,8 +42,7 @@ unsigned long lastPressTime7 = 0;
 const unsigned long DEBOUNCE_DELAY = 100; // 100ms debounce
 
 void setup() {
-
-  // Initialize buttons
+  // Initialize buttons first
   pinMode(BUTTON_PIN1, INPUT_PULLUP);
   pinMode(BUTTON_PIN2, INPUT_PULLUP);
   pinMode(BUTTON_PIN3, INPUT_PULLUP);
@@ -49,10 +51,16 @@ void setup() {
   pinMode(BUTTON_PIN6, INPUT_PULLUP);
   pinMode(BUTTON_PIN7, INPUT_PULLUP);
 
-  // Initialize USB MIDI
+  // Initialize TinyUSB Device
   TinyUSB_Device_Init(0);
+
+  // Set USB descriptors
   USBDevice.setManufacturerDescriptor("OS MIDI Controller");
-  USBDevice.setProductDescriptor("MIDI Test");
+  USBDevice.setProductDescriptor("MIDI Controller");
+
+  // Initialize USB CDC (Serial debug)
+  USBSerial.begin(115200);
+  Serial.begin(115200);
 
   // Start USB MIDI
   USB_MIDI.begin(MIDI_CHANNEL_OMNI);
@@ -61,8 +69,12 @@ void setup() {
   Serial1.setTX(0); // TX0 = GPIO0
   SERIAL_MIDI.begin(MIDI_CHANNEL_OMNI);
 
-  // Enable core Serial (CDC) for debugging
-  Serial.begin(115200);
+  // Wait for serial port to connect (with timeout)
+  unsigned long timeout = millis() + 3000; // 3 second timeout
+  while (!Serial && millis() < timeout) {
+    delay(10);
+  }
+
   delay(100);
 
   Serial.println("\n=== OS MIDI Controller ===");
@@ -80,7 +92,8 @@ void Scan_User() {
   if (digitalRead(BUTTON_PIN1) == LOW &&
       (currentTime - lastPressTime1) > DEBOUNCE_DELAY) {
     lastPressTime1 = currentTime;
-    Serial.println("Button 1: Note 36 (Kick)");
+    if (Serial)
+      Serial.println("Button 1: Note 36 (Kick)");
     SERIAL_MIDI.sendNoteOn(36, 127, 1);
     USB_MIDI.sendNoteOn(36, 127, 1);
     delay(5);
@@ -92,7 +105,8 @@ void Scan_User() {
   if (digitalRead(BUTTON_PIN2) == LOW &&
       (currentTime - lastPressTime2) > DEBOUNCE_DELAY) {
     lastPressTime2 = currentTime;
-    Serial.println("Button 2: Note 37 (Side Stick)");
+    if (Serial)
+      Serial.println("Button 2: Note 37 (Side Stick)");
     SERIAL_MIDI.sendNoteOn(37, 127, 1);
     USB_MIDI.sendNoteOn(37, 127, 1);
     delay(5);
@@ -104,7 +118,8 @@ void Scan_User() {
   if (digitalRead(BUTTON_PIN3) == LOW &&
       (currentTime - lastPressTime3) > DEBOUNCE_DELAY) {
     lastPressTime3 = currentTime;
-    Serial.println("Button 3: Note 38 (Snare)");
+    if (Serial)
+      Serial.println("Button 3: Note 38 (Snare)");
     SERIAL_MIDI.sendNoteOn(38, 127, 1);
     USB_MIDI.sendNoteOn(38, 127, 1);
     delay(5);
@@ -116,7 +131,8 @@ void Scan_User() {
   if (digitalRead(BUTTON_PIN4) == LOW &&
       (currentTime - lastPressTime4) > DEBOUNCE_DELAY) {
     lastPressTime4 = currentTime;
-    Serial.println("Button 4: Note 39 (Clap)");
+    if (Serial)
+      Serial.println("Button 4: Note 39 (Clap)");
     SERIAL_MIDI.sendNoteOn(39, 127, 1);
     USB_MIDI.sendNoteOn(39, 127, 1);
     delay(5);
@@ -128,7 +144,8 @@ void Scan_User() {
   if (digitalRead(BUTTON_PIN5) == LOW &&
       (currentTime - lastPressTime5) > DEBOUNCE_DELAY) {
     lastPressTime5 = currentTime;
-    Serial.println("Button 5: Note 40 (Electric Snare)");
+    if (Serial)
+      Serial.println("Button 5: Note 40 (Electric Snare)");
     SERIAL_MIDI.sendNoteOn(40, 127, 1);
     USB_MIDI.sendNoteOn(40, 127, 1);
     delay(5);
@@ -140,7 +157,8 @@ void Scan_User() {
   if (digitalRead(BUTTON_PIN6) == LOW &&
       (currentTime - lastPressTime6) > DEBOUNCE_DELAY) {
     lastPressTime6 = currentTime;
-    Serial.println("Button 6: Note 41 (Low Floor Tom)");
+    if (Serial)
+      Serial.println("Button 6: Note 41 (Low Floor Tom)");
     SERIAL_MIDI.sendNoteOn(41, 127, 1);
     USB_MIDI.sendNoteOn(41, 127, 1);
     delay(5);
@@ -152,7 +170,8 @@ void Scan_User() {
   if (digitalRead(BUTTON_PIN7) == LOW &&
       (currentTime - lastPressTime7) > DEBOUNCE_DELAY) {
     lastPressTime7 = currentTime;
-    Serial.println("Button 7: Note 42 (Closed Hi-Hat)");
+    if (Serial)
+      Serial.println("Button 7: Note 42 (Closed Hi-Hat)");
     SERIAL_MIDI.sendNoteOn(42, 127, 1);
     USB_MIDI.sendNoteOn(42, 127, 1);
     delay(5);
