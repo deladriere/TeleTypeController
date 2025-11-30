@@ -449,7 +449,7 @@
         </div>
 
         <div class="footer">
-            <p>OS MIDI Controller | RP2040 Zero | 24LC16 EEPROM | Web Serial API</p>
+            <p>OS MIDI Controller | RP2040 Zero | Emulated EEPROM (Flash) | Web Serial API</p>
             <p style="margin-top: 5px; font-size: 0.85em;">Use Chrome/Edge for Serial Port support</p>
         </div>
     </div>
@@ -700,6 +700,53 @@
 
             console.appendChild(entry);
             console.scrollTop = console.scrollHeight;
+
+            // Parse mapping data and update UI
+            parseAndUpdateUI(message);
+        }
+
+        function parseAndUpdateUI(line) {
+            // Parse button mappings: "  Button 1 (GPIO2) -> Note 36"
+            const buttonMatch = line.match(/Button\s+(\d+)\s+\(GPIO\d+\)\s+->\s+Note\s+(\d+)/);
+            if (buttonMatch) {
+                const btnNum = parseInt(buttonMatch[1]);
+                const note = parseInt(buttonMatch[2]);
+                const input = document.getElementById(`btn${btnNum}`);
+                if (input) {
+                    input.value = note;
+                }
+                return;
+            }
+
+            // Parse pot CC mappings: "  Pot 1 (A0) -> CC 1"
+            const potCCMatch = line.match(/Pot\s+(\d+)\s+\(A\d+\)\s+->\s+CC\s+(\d+)/);
+            if (potCCMatch) {
+                const potNum = parseInt(potCCMatch[1]);
+                const cc = parseInt(potCCMatch[2]);
+                const ccInput = document.getElementById(`pot${potNum}CC`);
+                const ccRadio = document.querySelector(`input[name="pot${potNum}Type"][value="cc"]`);
+                if (ccInput && ccRadio) {
+                    ccRadio.checked = true;
+                    ccInput.value = cc;
+                    ccInput.disabled = false;
+                    ccInput.style.opacity = '1';
+                }
+                return;
+            }
+
+            // Parse pot Pitch Bend mappings: "  Pot 2 (A1) -> Pitch Bend ★"
+            const potPBMatch = line.match(/Pot\s+(\d+)\s+\(A\d+\)\s+->\s+Pitch Bend/);
+            if (potPBMatch) {
+                const potNum = parseInt(potPBMatch[1]);
+                const pbRadio = document.querySelector(`input[name="pot${potNum}Type"][value="pb"]`);
+                const ccInput = document.getElementById(`pot${potNum}CC`);
+                if (pbRadio && ccInput) {
+                    pbRadio.checked = true;
+                    ccInput.disabled = true;
+                    ccInput.style.opacity = '0.3';
+                }
+                return;
+            }
         }
 
         function clearConsole() {
