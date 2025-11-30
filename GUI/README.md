@@ -187,3 +187,4 @@ Dark theme with gradient design
 
 **Need Help?** Check the main project documentation or open an issue.
 
+

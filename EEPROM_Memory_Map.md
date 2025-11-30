@@ -1,8 +1,12 @@
 # OS MIDI Controller - EEPROM Memory Map
 
-**Device:** 24LC16 (2KB / 2048 bytes)  
-**I2C Address:** 0x50-0x57 (block addressing)  
-**Version:** 1.0
+**Device:** RP2040 Emulated EEPROM (Flash Storage)  
+**Size:** 512 bytes (configurable up to 4KB)  
+**Version:** 1.1
+
+> **Note:** The RP2040 does not have real EEPROM. This uses a 4KB flash sector 
+> at the end of flash memory. Flash has limited write cycles (~100K), so avoid
+> frequent writes to prevent premature wear.
 
 ---
 
@@ -238,25 +242,34 @@
 
 ## Technical Details
 
-### 24LC16 Block Addressing
-- **Capacity:** 2048 bytes organized as 8 blocks × 256 bytes
-- **Block Select:** Address bits [10:8] encoded in I2C device address
-- **Device Addresses:** 0x50-0x57 (one per block)
-- **Word Address:** 8-bit (bits [7:0])
+### RP2040 Emulated EEPROM
+- **Storage:** 4KB flash sector at end of flash memory
+- **Configured Size:** 512 bytes (adjustable via `EEPROM.begin(size)`)
+- **Max Size:** 4096 bytes
+- **Write Endurance:** ~100,000 cycles (flash limitation)
+- **Library:** `<EEPROM.h>` (earlephilhower Arduino-Pico core)
 
-### I2C Configuration
-- **Bus:** I2C1 (Wire1)
-- **SDA:** GPIO14
-- **SCL:** GPIO15
-- **Speed:** 100 kHz
-- **Write Cycle Time:** 5ms typical
+### API Usage
+```cpp
+EEPROM.begin(512);           // Initialize with size
+EEPROM.read(addr);           // Read byte at address
+EEPROM.write(addr, data);    // Write byte (buffered in RAM)
+EEPROM.commit();             // Write RAM buffer to flash
+EEPROM.end();                // Commit and free memory
+```
+
+### Important Notes
+- Writes are buffered in RAM until `EEPROM.commit()` is called
+- No external wiring required - all internal to RP2040
+- Data persists across power cycles
 
 ---
 
 ## Version History
 
 ### Version 0x01 (Current)
-- Initial release
+- Switched to RP2040 emulated EEPROM (flash)
+- Removed external I2C EEPROM (24LC16) dependency
 - 16 button mappings (7 physical)
 - 4 pot mappings (CC or Pitch Bend)
 - 4 encoder mappings (reserved)
@@ -279,4 +292,5 @@
 **Document Version:** 1.0  
 **Last Updated:** 2025-11-30  
 **Maintained by:** OS MIDI Controller Project
+
 

@@ -1,19 +1,17 @@
 /*
- * MIDI Test - Note 36 every 500ms
+ * OS MIDI Controller
  * Outputs on USB MIDI and Serial MIDI (TX0)
+ * Configuration stored in RP2040 emulated EEPROM (flash)
  */
 
-#define PICO_VERSION "v1.0"
+#define PICO_VERSION "v1.1"
 
 #include "config_eeprom.h"
 #include <Adafruit_TinyUSB.h>
+#include <EEPROM.h>
 #include <MIDI.h>
-#include <Wire.h>
 
 // Forward declarations
-void initI2C();
-byte readEEPROM(uint16_t address);
-void writeEEPROM(uint16_t address, byte data);
 uint16_t calculateChecksum();
 void resetConfigToDefaults();
 void saveConfig();
@@ -32,13 +30,9 @@ bool loadConfig();
 #define POTENTIOMETER_PIN3 A2
 #define POTENTIOMETER_PIN4 A3
 
-// I2C EEPROM 24LC16 (2KB)
-// IMPORTANT: Pins A0, A1, A2 MUST be tied to GND (not floating!)
-// Floating address pins will cause multiple addresses to respond (0x50-0x57)
-#define EEPROM_I2C_ADDRESS 0x50 // Base address with A0=A1=A2=GND
-#define EEPROM_SIZE 2048        // 2KB = 2048 bytes
-#define I2C_SDA_PIN 14          // SDA1 on RP2040 Zero (GPIO14)
-#define I2C_SCL_PIN 15          // SCL1 on RP2040 Zero (GPIO15)
+// Emulated EEPROM size (stored in RP2040 flash)
+// Note: Flash has limited write cycles (~100K), don't write too frequently
+#define EEPROM_SIZE 512 // 512 bytes (max 4096)
 
 // USB CDC (Serial) for debugging - must be declared to exist
 Adafruit_USBD_CDC USBSerial;
@@ -59,9 +53,6 @@ unsigned long lastPressTime5 = 0;
 unsigned long lastPressTime6 = 0;
 unsigned long lastPressTime7 = 0;
 const unsigned long DEBOUNCE_DELAY = 100; // 100ms debounce
-
-// I2C initialization flag
-bool i2cInitialized = false;
 
 // Configuration in RAM (current working config)
 struct Config {
@@ -102,8 +93,8 @@ void setup() {
   Serial1.setTX(0); // TX0 = GPIO0
   SERIAL_MIDI.begin(MIDI_CHANNEL_OMNI);
 
-  // NOTE: I2C is initialized on-demand when first I2C command is used
-  // This prevents USB enumeration issues
+  // Initialize emulated EEPROM (stored in flash)
+  EEPROM.begin(EEPROM_SIZE);
 
   // Wait for serial port to connect (with timeout)
   unsigned long timeout = millis() + 3000; // 3 second timeout
@@ -118,7 +109,7 @@ void setup() {
   Serial.println("7 Buttons initialized");
   Serial.println("USB MIDI: Active");
   Serial.println("Serial MIDI (TX0): Active");
-  Serial.println("I2C: GPIO14/15 (initialized on demand)");
+  Serial.println("EEPROM: Emulated (flash)");
   Serial.println("Type /h for help\n");
 
   // Auto-load configuration from EEPROM
@@ -130,56 +121,6 @@ void setup() {
   Serial.println("Ready!\n");
 }
 
-void initI2C() {
-  if (!i2cInitialized) {
-    Serial.println("Initializing I2C1...");
-    Wire1.setSDA(I2C_SDA_PIN); // GPIO14
-    Wire1.setSCL(I2C_SCL_PIN); // GPIO15
-    Wire1.begin();
-    Wire1.setClock(100000); // 100kHz for EEPROM
-    delay(50);
-    i2cInitialized = true;
-    Serial.println("I2C1 initialized on GPIO14/15");
-  }
-}
-
-// ============================================================================
-// EEPROM READ/WRITE FUNCTIONS (Must be before config functions)
-// ============================================================================
-
-byte readEEPROM(uint16_t address) {
-  byte blockBits = (address >> 8) & 0x07;           // Extract bits 10:8
-  byte deviceAddr = EEPROM_I2C_ADDRESS | blockBits; // Add block to base address
-  byte wordAddr = address & 0xFF;                   // Lower 8 bits
-
-  Wire1.beginTransmission(deviceAddr);
-  Wire1.write(wordAddr); // Only send 8-bit word address
-  Wire1.endTransmission();
-
-  Wire1.requestFrom(deviceAddr, 1);
-  if (Wire1.available()) {
-    return Wire1.read();
-  }
-  return 0xFF;
-}
-
-void writeEEPROM(uint16_t address, byte data) {
-  byte blockBits = (address >> 8) & 0x07;           // Extract bits 10:8
-  byte deviceAddr = EEPROM_I2C_ADDRESS | blockBits; // Add block to base address
-  byte wordAddr = address & 0xFF;                   // Lower 8 bits
-
-  Wire1.beginTransmission(deviceAddr);
-  Wire1.write(wordAddr); // Only send 8-bit word address
-  Wire1.write(data);
-  byte error = Wire1.endTransmission();
-
-  if (error != 0) {
-    Serial.print("Write error: ");
-    Serial.println(error);
-  }
-
-  delay(5); // Write cycle time (5ms typical for 24LC16)
-}
 
 // ============================================================================
 // CONFIGURATION FUNCTIONS
@@ -188,7 +129,7 @@ void writeEEPROM(uint16_t address, byte data) {
 uint16_t calculateChecksum() {
   uint16_t sum = 0;
   for (uint16_t addr = 0; addr < EEPROM_ADDR_CHECKSUM; addr++) {
-    sum += readEEPROM(addr);
+    sum += EEPROM.read(addr);
   }
   return sum;
 }
@@ -213,63 +154,64 @@ void resetConfigToDefaults() {
 }
 
 void saveConfig() {
-  initI2C();
-
   Serial.println("\n=== Saving Configuration to EEPROM ===");
 
   // Write header
-  writeEEPROM(EEPROM_ADDR_MAGIC + 0, CONFIG_MAGIC_0);
-  writeEEPROM(EEPROM_ADDR_MAGIC + 1, CONFIG_MAGIC_1);
-  writeEEPROM(EEPROM_ADDR_MAGIC + 2, CONFIG_MAGIC_2);
-  writeEEPROM(EEPROM_ADDR_MAGIC + 3, CONFIG_MAGIC_3);
-  writeEEPROM(EEPROM_ADDR_VERSION, CONFIG_VERSION);
-  writeEEPROM(EEPROM_ADDR_FLAGS, 0);
-  writeEEPROM(EEPROM_ADDR_NUM_BTNS, MAX_BUTTONS);
-  writeEEPROM(EEPROM_ADDR_NUM_POTS, MAX_POTS);
-  writeEEPROM(EEPROM_ADDR_NUM_ENCS, MAX_ENCODERS);
+  EEPROM.write(EEPROM_ADDR_MAGIC + 0, CONFIG_MAGIC_0);
+  EEPROM.write(EEPROM_ADDR_MAGIC + 1, CONFIG_MAGIC_1);
+  EEPROM.write(EEPROM_ADDR_MAGIC + 2, CONFIG_MAGIC_2);
+  EEPROM.write(EEPROM_ADDR_MAGIC + 3, CONFIG_MAGIC_3);
+  EEPROM.write(EEPROM_ADDR_VERSION, CONFIG_VERSION);
+  EEPROM.write(EEPROM_ADDR_FLAGS, 0);
+  EEPROM.write(EEPROM_ADDR_NUM_BTNS, MAX_BUTTONS);
+  EEPROM.write(EEPROM_ADDR_NUM_POTS, MAX_POTS);
+  EEPROM.write(EEPROM_ADDR_NUM_ENCS, MAX_ENCODERS);
 
   // Write button mappings
   for (int i = 0; i < MAX_BUTTONS; i++) {
-    writeEEPROM(EEPROM_ADDR_BUTTONS + i, config.buttonNotes[i]);
+    EEPROM.write(EEPROM_ADDR_BUTTONS + i, config.buttonNotes[i]);
   }
 
   // Write pot mappings
   for (int i = 0; i < MAX_POTS; i++) {
-    writeEEPROM(EEPROM_ADDR_POTS + (i * 2), config.potTypes[i]);
-    writeEEPROM(EEPROM_ADDR_POTS + (i * 2) + 1, config.potValues[i]);
+    EEPROM.write(EEPROM_ADDR_POTS + (i * 2), config.potTypes[i]);
+    EEPROM.write(EEPROM_ADDR_POTS + (i * 2) + 1, config.potValues[i]);
   }
 
   // Write encoder mappings
   for (int i = 0; i < MAX_ENCODERS; i++) {
-    writeEEPROM(EEPROM_ADDR_ENCODERS + (i * 2), config.encCCs[i]);
-    writeEEPROM(EEPROM_ADDR_ENCODERS + (i * 2) + 1, config.encModes[i]);
+    EEPROM.write(EEPROM_ADDR_ENCODERS + (i * 2), config.encCCs[i]);
+    EEPROM.write(EEPROM_ADDR_ENCODERS + (i * 2) + 1, config.encModes[i]);
   }
 
   // Calculate and write checksum
   uint16_t checksum = calculateChecksum();
-  writeEEPROM(EEPROM_ADDR_CHECKSUM, (byte)(checksum >> 8));
-  writeEEPROM(EEPROM_ADDR_CHECKSUM + 1, (byte)(checksum & 0xFF));
+  EEPROM.write(EEPROM_ADDR_CHECKSUM, (byte)(checksum >> 8));
+  EEPROM.write(EEPROM_ADDR_CHECKSUM + 1, (byte)(checksum & 0xFF));
 
-  Serial.println("Configuration saved successfully!");
+  // Commit changes to flash (required for emulated EEPROM)
+  if (EEPROM.commit()) {
+    Serial.println("Configuration saved successfully!");
+  } else {
+    Serial.println("ERROR: EEPROM commit failed!");
+  }
   Serial.println("====================\n");
 }
 
 bool loadConfig() {
-  initI2C();
-
   Serial.println("\n=== Loading Configuration from EEPROM ===");
 
   // Check magic bytes
-  if (readEEPROM(EEPROM_ADDR_MAGIC + 0) != CONFIG_MAGIC_0 ||
-      readEEPROM(EEPROM_ADDR_MAGIC + 1) != CONFIG_MAGIC_1 ||
-      readEEPROM(EEPROM_ADDR_MAGIC + 2) != CONFIG_MAGIC_2 ||
-      readEEPROM(EEPROM_ADDR_MAGIC + 3) != CONFIG_MAGIC_3) {
+  if (EEPROM.read(EEPROM_ADDR_MAGIC + 0) != CONFIG_MAGIC_0 ||
+      EEPROM.read(EEPROM_ADDR_MAGIC + 1) != CONFIG_MAGIC_1 ||
+      EEPROM.read(EEPROM_ADDR_MAGIC + 2) != CONFIG_MAGIC_2 ||
+      EEPROM.read(EEPROM_ADDR_MAGIC + 3) != CONFIG_MAGIC_3) {
     Serial.println("EEPROM not initialized (magic bytes missing)");
     return false;
   }
 
   // Check version
-  byte version = readEEPROM(EEPROM_ADDR_VERSION);
+  byte version = EEPROM.read(EEPROM_ADDR_VERSION);
   if (version != CONFIG_VERSION) {
     Serial.print("Version mismatch: ");
     Serial.println(version);
@@ -277,8 +219,8 @@ bool loadConfig() {
   }
 
   // Verify checksum
-  uint16_t storedChecksum = (readEEPROM(EEPROM_ADDR_CHECKSUM) << 8) |
-                            readEEPROM(EEPROM_ADDR_CHECKSUM + 1);
+  uint16_t storedChecksum = (EEPROM.read(EEPROM_ADDR_CHECKSUM) << 8) |
+                            EEPROM.read(EEPROM_ADDR_CHECKSUM + 1);
   uint16_t calcChecksum = calculateChecksum();
 
   if (storedChecksum != calcChecksum) {
@@ -288,19 +230,19 @@ bool loadConfig() {
 
   // Load button mappings
   for (int i = 0; i < MAX_BUTTONS; i++) {
-    config.buttonNotes[i] = readEEPROM(EEPROM_ADDR_BUTTONS + i);
+    config.buttonNotes[i] = EEPROM.read(EEPROM_ADDR_BUTTONS + i);
   }
 
   // Load pot mappings
   for (int i = 0; i < MAX_POTS; i++) {
-    config.potTypes[i] = readEEPROM(EEPROM_ADDR_POTS + (i * 2));
-    config.potValues[i] = readEEPROM(EEPROM_ADDR_POTS + (i * 2) + 1);
+    config.potTypes[i] = EEPROM.read(EEPROM_ADDR_POTS + (i * 2));
+    config.potValues[i] = EEPROM.read(EEPROM_ADDR_POTS + (i * 2) + 1);
   }
 
   // Load encoder mappings
   for (int i = 0; i < MAX_ENCODERS; i++) {
-    config.encCCs[i] = readEEPROM(EEPROM_ADDR_ENCODERS + (i * 2));
-    config.encModes[i] = readEEPROM(EEPROM_ADDR_ENCODERS + (i * 2) + 1);
+    config.encCCs[i] = EEPROM.read(EEPROM_ADDR_ENCODERS + (i * 2));
+    config.encModes[i] = EEPROM.read(EEPROM_ADDR_ENCODERS + (i * 2) + 1);
   }
 
   Serial.println("Configuration loaded successfully!");
@@ -323,8 +265,7 @@ void printHelp() {
   Serial.println("");
   Serial.println("INFO:");
   Serial.println("  /h - Show this help");
-  Serial.println("  /i - Scan I2C bus");
-  Serial.println("  /d - Dump EEPROM");
+  Serial.println("  /d - Dump EEPROM contents");
   Serial.println("====================\n");
 }
 
@@ -375,122 +316,11 @@ void printMidiMapping() {
   Serial.println("\n====================\n");
 }
 
-void scanI2C() {
-  initI2C(); // Initialize I2C on first use
-
-  Serial.println("\n=== I2C Bus Scanner ===");
-  Serial.println("Scanning I2C1 bus (0x00 to 0x7F)...\n");
-
-  int devicesFound = 0;
-
-  for (byte address = 0; address < 128; address++) {
-    Wire1.beginTransmission(address);
-    byte error = Wire1.endTransmission();
-
-    if (error == 0) {
-      Serial.print("I2C device found at address 0x");
-      if (address < 16)
-        Serial.print("0");
-      Serial.print(address, HEX);
-      Serial.print(" (");
-      Serial.print(address);
-      Serial.println(")");
-
-      // Identify known devices
-      if (address == 0x50) {
-        Serial.println("  -> 24LC16 EEPROM (or similar)");
-      }
-
-      devicesFound++;
-    } else if (error == 4) {
-      Serial.print("Unknown error at address 0x");
-      if (address < 16)
-        Serial.print("0");
-      Serial.println(address, HEX);
-    }
-  }
-
-  Serial.println();
-  if (devicesFound == 0) {
-    Serial.println("No I2C devices found!");
-    Serial.println("Check wiring and pull-up resistors.");
-  } else {
-    Serial.print("Scan complete. Found ");
-    Serial.print(devicesFound);
-    Serial.println(" device(s).");
-  }
-  Serial.println("====================\n");
-}
-
-// 24LC16 uses block addressing: 8 blocks of 256 bytes
-// Block select bits (address bits 10:8) go into the device address
-// Device address format: 1010 B2 B1 B0 R/W
-void writeStringEEPROM(uint16_t startAddress, String text) {
-  initI2C();
-
-  Serial.print("Writing \"");
-  Serial.print(text);
-  Serial.println("\" to EEPROM...");
-
-  // Write string length first
-  byte len = text.length();
-  if (len > 255)
-    len = 255; // Max 255 chars
-
-  writeEEPROM(startAddress, len);
-
-  // Write each character
-  for (int i = 0; i < len; i++) {
-    writeEEPROM(startAddress + 1 + i, text[i]);
-    if (i % 16 == 0 && i > 0) {
-      Serial.print(".");
-    }
-  }
-
-  Serial.println("\nWrite complete!");
-  Serial.print("Stored ");
-  Serial.print(len);
-  Serial.println(" bytes at address 0x0000");
-}
-
-void readStringEEPROM(uint16_t startAddress) {
-  initI2C();
-
-  Serial.println("\n=== Reading String from EEPROM ===");
-
-  // Read length
-  byte len = readEEPROM(startAddress);
-
-  if (len == 0 || len == 0xFF) {
-    Serial.println("No string found (empty or uninitialized)");
-    Serial.println("====================\n");
-    return;
-  }
-
-  Serial.print("Length: ");
-  Serial.print(len);
-  Serial.println(" bytes");
-  Serial.print("String: \"");
-
-  // Read and print each character
-  for (int i = 0; i < len; i++) {
-    byte ch = readEEPROM(startAddress + 1 + i);
-    if (ch >= 32 && ch <= 126) {
-      Serial.print((char)ch);
-    } else {
-      Serial.print("?");
-    }
-  }
-
-  Serial.println("\"");
-  Serial.println("====================\n");
-}
-
 void dumpEEPROM() {
-  initI2C(); // Initialize I2C on first use
-
-  Serial.println("\n=== EEPROM Dump (24LC16, 2KB) ===");
-  Serial.println("Address: 0x50 | Size: 2048 bytes\n");
+  Serial.println("\n=== EEPROM Dump (Emulated Flash) ===");
+  Serial.print("Size: ");
+  Serial.print(EEPROM_SIZE);
+  Serial.println(" bytes\n");
 
   for (uint16_t addr = 0; addr < EEPROM_SIZE; addr += 16) {
     // Print address
@@ -505,7 +335,7 @@ void dumpEEPROM() {
     // Read and store 16 bytes
     byte data[16];
     for (int i = 0; i < 16; i++) {
-      data[i] = readEEPROM(addr + i);
+      data[i] = EEPROM.read(addr + i);
     }
 
     // Print hex values
@@ -611,20 +441,8 @@ void Process_Serial_Commands() {
       } else {
         Serial.println("Usage: /p <1-4> cc <0-127> OR /p <1-4> pb");
       }
-    } else if (command == "/i") {
-      scanI2C();
-    } else if (command == "/r") {
-      readStringEEPROM(0);
     } else if (command == "/d") {
       dumpEEPROM();
-    } else if (command.startsWith("/s ")) {
-      // Extract text after "/s "
-      String text = command.substring(3);
-      if (text.length() > 0) {
-        writeStringEEPROM(0, text);
-      } else {
-        Serial.println("Usage: /s <text>");
-      }
     } else if (command.length() > 0) {
       Serial.print("Unknown command: ");
       Serial.println(command);

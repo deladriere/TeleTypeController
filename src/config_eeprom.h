@@ -1,9 +1,12 @@
 /*
  * OS MIDI Controller - EEPROM Configuration Map
- * 24LC16 (2KB) Memory Layout
+ * RP2040 Emulated EEPROM (Flash Storage)
  *
  * This file documents the EEPROM memory organization for AI reference
  * and future development.
+ *
+ * Note: Emulated EEPROM uses flash memory, limited to ~100K write cycles.
+ * Don't write too frequently to avoid wearing out the flash.
  */
 
 #ifndef CONFIG_EEPROM_H
