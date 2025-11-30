@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OS MIDI Controller</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            color: #00d4ff;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .version {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        .connection-panel {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+        }
+
+        .status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .status.disconnected {
+            background: rgba(235, 51, 73, 0.2);
+            color: #ff6b6b;
+            border: 1px solid rgba(235, 51, 73, 0.3);
+        }
+
+        .status.connected {
+            background: rgba(17, 153, 142, 0.2);
+            color: #38ef7d;
+            border: 1px solid rgba(17, 153, 142, 0.3);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 600px 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+            align-items: start;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .panel h2 {
+            color: #00d4ff;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel h2::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+        }
+
+        .mapping-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .mapping-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 12px;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: 70px auto auto;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .mapping-item:hover {
+            background: rgba(0, 0, 0, 0.4);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .mapping-label {
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        input[type="number"],
+        select {
+            background: rgba(0, 0, 0, 0.4);
+            color: #e0e0e0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 1em;
+            width: 100%;
+        }
+
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+        }
+
+        .value-display {
+            text-align: center;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        .btn-small {
+            padding: 6px 15px;
+            font-size: 0.9em;
+        }
+
+        .action-bar {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .console {
+            background: #0a0a0a;
+            padding: 15px;
+            border-radius: 10px;
+            height: 500px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+            margin-bottom: 10px;
+        }
+
+        .log-entry {
+            color: #00ff00;
+            margin: 0;
+            padding: 0;
+            line-height: 1.4;
+            white-space: pre;
+            font-family: 'Courier New', Consolas, monospace;
+            overflow-x: auto;
+        }
+
+        .log-entry.info {
+            color: #00d4ff;
+        }
+
+        .log-entry.success {
+            color: #00ff88;
+        }
+
+        .log-entry.warning {
+            color: #ffaa00;
+        }
+
+        .log-entry.error {
+            color: #ff4444;
+        }
+
+        .timestamp {
+            color: #888;
+            margin-right: 5px;
+        }
+
+        .command-input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .command-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.4);
+            color: #00d4ff;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+        }
+
+        .command-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+        }
+
+        .console-panel {
+            position: sticky;
+            top: 20px;
+        }
+
+        .input-small {
+            max-width: 80px;
+        }
+
+        .console::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .console::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+        }
+
+        .console::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.3);
+            border-radius: 5px;
+        }
+
+        .console::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 212, 255, 0.5);
+        }
+
+        .log-entry {
+            color: #00d4ff;
+            margin: 0;
+            padding: 0;
+            line-height: 1.4;
+            white-space: pre;
+            font-family: 'Courier New', Consolas, monospace;
+        }
+
+        .log-entry.info {
+            color: #00d4ff;
+        }
+
+        .log-entry.success {
+            color: #38ef7d;
+        }
+
+        .log-entry.error {
+            color: #ff6b6b;
+        }
+
+        .log-entry.warning {
+            color: #f2c94c;
+        }
+
+        .log-entry-empty {
+            margin: 0;
+            padding: 0;
+            line-height: 1.4;
+        }
+
+        .timestamp {
+            color: #666;
+            font-size: 0.85em;
+            margin-right: 10px;
+        }
+
+        .pot-type-select {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        input[type="radio"] {
+            cursor: pointer;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🎹 OS MIDI Controller</h1>
+            <p class="version">Configuration Interface v1.0</p>
+        </header>
+
+        <div class="connection-panel">
+            <button class="btn" id="connectBtn" onclick="connectSerial()">Connect Serial</button>
+            <button class="btn btn-danger" id="disconnectBtn" onclick="disconnectSerial()" disabled>Disconnect</button>
+            <div class="status disconnected" id="status">Disconnected</div>
+            <button class="btn btn-small" onclick="loadMapping()">Load from Device (/m)</button>
+        </div>
+
+        <div class="main-grid">
+            <div class="left-panel">
+                <div class="panel">
+                    <h2>🔘 Button Mappings</h2>
+                    <div class="mapping-grid" id="buttonMappings"></div>
+                </div>
+
+                <div class="panel">
+                    <h2>🎚️ Potentiometer Mappings</h2>
+                    <div class="mapping-grid" id="potMappings"></div>
+                </div>
+            </div>
+
+            <div class="panel console-panel">
+                <h2>📟 Console</h2>
+                <div class="console" id="console"></div>
+                <div class="command-input-container">
+                    <input type="text" class="command-input" id="commandInput"
+                        placeholder="Enter command... (/h for help)" onkeypress="handleCommandKey(event)">
+                    <button class="btn btn-small" onclick="sendManualCommand()">Send</button>
+                    <button class="btn btn-small btn-danger" onclick="clearConsole()">Clear</button>
+                </div>
+
+                <div class="action-bar"
+                    style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <button class="btn btn-success btn-small" onclick="saveToDevice()">💾 Save</button>
+                    <button class="btn btn-small" onclick="loadFromDevice()">📥 Load</button>
+                    <button class="btn btn-warning btn-small" onclick="resetToDefaults()">🔄 Reset</button>
+                    <button class="btn btn-small" onclick="loadMapping()">📋 Show (/m)</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>OS MIDI Controller | RP2040 Zero | 24LC16 EEPROM | Web Serial API</p>
+            <p style="margin-top: 5px; font-size: 0.85em;">Use Chrome/Edge for Serial Port support</p>
+        </div>
+    </div>
+
+    <script>
+        let port;
+        let reader;
+        let writer;
+        let isReading = false;
+
+        // Initialize UI
+        function initUI() {
+            // Create button mappings
+            const buttonContainer = document.getElementById('buttonMappings');
+            for (let i = 1; i <= 7; i++) {
+                const item = document.createElement('div');
+                item.className = 'mapping-item';
+                item.innerHTML = `
+                    <div class="mapping-label">Button ${i}</div>
+                    <input type="number" id="btn${i}" min="0" max="127" value="${getDefaultButtonNote(i)}" 
+                           class="input-small" placeholder="Note">
+                    <button class="btn btn-small" onclick="sendButtonMapping(${i})">Set</button>
+                `;
+                buttonContainer.appendChild(item);
+
+            }
+
+            // Create pot mappings
+            const potContainer = document.getElementById('potMappings');
+            const defaultPotCC = [1, 2, 74, 71];
+            for (let i = 1; i <= 4; i++) {
+                const item = document.createElement('div');
+                item.className = 'mapping-item';
+                item.innerHTML = `
+                    <div class="mapping-label">Pot ${i}</div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <label class="radio-label">
+                            <input type="radio" name="pot${i}Type" value="cc" checked onchange="updatePotType(${i})">
+                            CC
+                        </label>
+                        <input type="number" id="pot${i}CC" min="0" max="127" value="${defaultPotCC[i - 1]}" 
+                               class="input-small" placeholder="CC#">
+                        <label class="radio-label">
+                            <input type="radio" name="pot${i}Type" value="pb" onchange="updatePotType(${i})">
+                            PB
+                        </label>
+                    </div>
+                    <button class="btn btn-small" onclick="sendPotMapping(${i})">Set</button>
+                `;
+                potContainer.appendChild(item);
+            }
+        }
+
+        function getDefaultButtonNote(buttonNum) {
+            const defaults = [36, 38, 42, 46, 37, 39, 49];
+            return defaults[buttonNum - 1];
+        }
+
+        function updatePotType(potNum) {
+            const isPB = document.querySelector(`input[name="pot${potNum}Type"]:checked`).value === 'pb';
+            const ccInput = document.getElementById(`pot${potNum}CC`);
+
+            if (isPB) {
+                ccInput.disabled = true;
+                ccInput.style.opacity = '0.3';
+            } else {
+                ccInput.disabled = false;
+                ccInput.style.opacity = '1';
+            }
+        }
+
+        function handleCommandKey(event) {
+            if (event.key === 'Enter') {
+                sendManualCommand();
+            }
+        }
+
+        async function sendManualCommand() {
+            const input = document.getElementById('commandInput');
+            const command = input.value.trim();
+
+            if (command.length === 0) {
+                return;
+            }
+
+            await sendCommand(command);
+            input.value = '';
+        }
+
+        // Serial connection
+        async function connectSerial() {
+            try {
+                log('Requesting serial port...', 'info');
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+
+                writer = port.writable.getWriter();
+
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').className = 'status connected';
+
+                log('✓ Connected successfully!', 'success');
+
+                // Start reading
+                readSerial();
+
+            } catch (error) {
+                log(`✗ Connection error: ${error.message}`, 'error');
+            }
+        }
+
+        async function disconnectSerial() {
+            isReading = false;
+
+            if (reader) {
+                await reader.cancel();
+                reader.releaseLock();
+            }
+
+            if (writer) {
+                writer.releaseLock();
+            }
+
+            if (port) {
+                await port.close();
+            }
+
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('disconnectBtn').disabled = true;
+            document.getElementById('status').textContent = 'Disconnected';
+            document.getElementById('status').className = 'status disconnected';
+
+            log('Disconnected', 'warning');
+        }
+
+        let serialBuffer = '';
+
+        async function readSerial() {
+            isReading = true;
+            reader = port.readable.getReader();
+            const textDecoder = new TextDecoder();
+
+            try {
+                while (isReading) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    const text = textDecoder.decode(value);
+                    serialBuffer += text;
+
+                    // Process complete lines
+                    let lines = serialBuffer.split('\n');
+                    // Keep the last incomplete line in buffer
+                    serialBuffer = lines.pop();
+
+                    // Display complete lines (raw, no timestamps)
+                    for (let line of lines) {
+                        line = line.replace(/\r$/, ''); // Remove trailing \r
+                        // Always log, even empty lines (they come from the device)
+                        logRaw(line);
+                    }
+                }
+            } catch (error) {
+                log(`Read error: ${error.message}`, 'error');
+            } finally {
+                reader.releaseLock();
+            }
+        }
+
+        async function sendCommand(command) {
+            if (!writer) {
+                log('Not connected!', 'error');
+                return;
+            }
+
+            try {
+                const data = new TextEncoder().encode(command + '\n');
+                await writer.write(data);
+                log(`→ ${command}`, 'info');
+            } catch (error) {
+                log(`Send error: ${error.message}`, 'error');
+            }
+        }
+
+        // Command functions
+        async function sendButtonMapping(buttonNum) {
+            const note = document.getElementById(`btn${buttonNum}`).value;
+            if (note < 0 || note > 127) {
+                log('Button note must be 0-127', 'error');
+                return;
+            }
+            await sendCommand(`/b ${buttonNum} ${note}`);
+        }
+
+        async function sendPotMapping(potNum) {
+            const isPB = document.querySelector(`input[name="pot${potNum}Type"]:checked`).value === 'pb';
+
+            if (isPB) {
+                await sendCommand(`/p ${potNum} pb`);
+            } else {
+                const cc = document.getElementById(`pot${potNum}CC`).value;
+                if (cc < 0 || cc > 127) {
+                    log('CC number must be 0-127', 'error');
+                    return;
+                }
+                await sendCommand(`/p ${potNum} cc ${cc}`);
+            }
+        }
+
+        async function saveToDevice() {
+            await sendCommand('/save');
+        }
+
+        async function loadFromDevice() {
+            await sendCommand('/load');
+        }
+
+        async function resetToDefaults() {
+            if (confirm('Reset all mappings to factory defaults?')) {
+                await sendCommand('/reset');
+            }
+        }
+
+        async function loadMapping() {
+            await sendCommand('/m');
+        }
+
+        // Console functions
+        function log(message, type = 'info') {
+            const console = document.getElementById('console');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="timestamp">[${timestamp}]</span>${message}`;
+
+            console.appendChild(entry);
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function logRaw(message) {
+            const console = document.getElementById('console');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = message || ' '; // Use space for empty lines
+
+            console.appendChild(entry);
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function clearConsole() {
+            document.getElementById('console').innerHTML = '';
+            log('Console cleared', 'info');
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            initUI();
+            log('OS MIDI Controller Interface loaded', 'success');
+            log('Click "Connect Serial" to start', 'info');
+
+            // Check if Web Serial API is supported
+            if ('serial' in navigator) {
+                log('✓ Web Serial API supported', 'success');
+            } else {
+                log('✗ Web Serial API not supported. Use Chrome or Edge!', 'error');
+            }
+        });
+    </script>
+</body>
+
+</html>
