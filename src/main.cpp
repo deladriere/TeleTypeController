@@ -45,14 +45,29 @@ MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usbd_midi, USB_MIDI);
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, SERIAL_MIDI);
 
 // Debounce variables for all buttons
-unsigned long lastPressTime1 = 0;
-unsigned long lastPressTime2 = 0;
-unsigned long lastPressTime3 = 0;
-unsigned long lastPressTime4 = 0;
-unsigned long lastPressTime5 = 0;
-unsigned long lastPressTime6 = 0;
-unsigned long lastPressTime7 = 0;
-const unsigned long DEBOUNCE_DELAY = 100; // 100ms debounce
+// Track previous raw reading, last stable state, and last state change time
+bool lastRawReading1 = HIGH;
+bool lastRawReading2 = HIGH;
+bool lastRawReading3 = HIGH;
+bool lastRawReading4 = HIGH;
+bool lastRawReading5 = HIGH;
+bool lastRawReading6 = HIGH;
+bool lastRawReading7 = HIGH;
+bool lastStableState1 = HIGH;
+bool lastStableState2 = HIGH;
+bool lastStableState3 = HIGH;
+bool lastStableState4 = HIGH;
+bool lastStableState5 = HIGH;
+bool lastStableState6 = HIGH;
+bool lastStableState7 = HIGH;
+unsigned long lastDebounceTime1 = 0;
+unsigned long lastDebounceTime2 = 0;
+unsigned long lastDebounceTime3 = 0;
+unsigned long lastDebounceTime4 = 0;
+unsigned long lastDebounceTime5 = 0;
+unsigned long lastDebounceTime6 = 0;
+unsigned long lastDebounceTime7 = 0;
+const unsigned long DEBOUNCE_DELAY = 50; // 50ms debounce delay
 
 // Configuration in RAM (current working config)
 struct Config {
@@ -72,6 +87,30 @@ void setup() {
   pinMode(BUTTON_PIN5, INPUT_PULLUP);
   pinMode(BUTTON_PIN6, INPUT_PULLUP);
   pinMode(BUTTON_PIN7, INPUT_PULLUP);
+
+  // Initialize button states and debounce times
+  unsigned long initTime = millis();
+  lastRawReading1 = digitalRead(BUTTON_PIN1);
+  lastRawReading2 = digitalRead(BUTTON_PIN2);
+  lastRawReading3 = digitalRead(BUTTON_PIN3);
+  lastRawReading4 = digitalRead(BUTTON_PIN4);
+  lastRawReading5 = digitalRead(BUTTON_PIN5);
+  lastRawReading6 = digitalRead(BUTTON_PIN6);
+  lastRawReading7 = digitalRead(BUTTON_PIN7);
+  lastStableState1 = lastRawReading1;
+  lastStableState2 = lastRawReading2;
+  lastStableState3 = lastRawReading3;
+  lastStableState4 = lastRawReading4;
+  lastStableState5 = lastRawReading5;
+  lastStableState6 = lastRawReading6;
+  lastStableState7 = lastRawReading7;
+  lastDebounceTime1 = initTime;
+  lastDebounceTime2 = initTime;
+  lastDebounceTime3 = initTime;
+  lastDebounceTime4 = initTime;
+  lastDebounceTime5 = initTime;
+  lastDebounceTime6 = initTime;
+  lastDebounceTime7 = initTime;
 
   // Initialize TinyUSB Device FIRST
   TinyUSB_Device_Init(0);
@@ -265,6 +304,7 @@ void printHelp() {
   Serial.println("INFO:");
   Serial.println("  /h - Show this help");
   Serial.println("  /d - Dump EEPROM contents");
+  Serial.println("  /test - Test button states");
   Serial.println("====================\n");
 }
 
@@ -442,6 +482,24 @@ void Process_Serial_Commands() {
       }
     } else if (command == "/d") {
       dumpEEPROM();
+    } else if (command == "/test") {
+      // Test button states
+      Serial.println("\n=== Button Test ===");
+      Serial.print("Button 1 (pin ");
+      Serial.print(BUTTON_PIN1);
+      Serial.print("): ");
+      Serial.println(digitalRead(BUTTON_PIN1) == LOW ? "PRESSED" : "RELEASED");
+      Serial.print("Button 2 (pin ");
+      Serial.print(BUTTON_PIN2);
+      Serial.print("): ");
+      Serial.println(digitalRead(BUTTON_PIN2) == LOW ? "PRESSED" : "RELEASED");
+      Serial.print("Button 3 (pin ");
+      Serial.print(BUTTON_PIN3);
+      Serial.print("): ");
+      Serial.println(digitalRead(BUTTON_PIN3) == LOW ? "PRESSED" : "RELEASED");
+      Serial.print("Config Button 1 Note: ");
+      Serial.println(config.buttonNotes[0]);
+      Serial.println("==================\n");
     } else if (command.length() > 0) {
       Serial.print("Unknown command: ");
       Serial.println(command);
@@ -453,117 +511,61 @@ void Process_Serial_Commands() {
 void Scan_User() {
   unsigned long currentTime = millis();
 
-  // Button 1 - Uses config
-  if (digitalRead(BUTTON_PIN1) == LOW &&
-      (currentTime - lastPressTime1) > DEBOUNCE_DELAY) {
-    lastPressTime1 = currentTime;
-    byte note = config.buttonNotes[0];
-    if (Serial) {
-      Serial.print("Button 1: Note ");
-      Serial.println(note);
-    }
-    SERIAL_MIDI.sendNoteOn(note, 127, 1);
-    USB_MIDI.sendNoteOn(note, 127, 1);
-    delay(5);
-    SERIAL_MIDI.sendNoteOff(note, 0, 1);
-    USB_MIDI.sendNoteOff(note, 0, 1);
-  }
+  // Helper function to check a single button with debouncing
+  auto checkButton = [&](int pin, bool &lastRawReading, bool &lastStableState,
+                         unsigned long &lastDebounceTime, int buttonIndex) {
+    bool reading = digitalRead(pin);
 
-  // Button 2 - Uses config
-  if (digitalRead(BUTTON_PIN2) == LOW &&
-      (currentTime - lastPressTime2) > DEBOUNCE_DELAY) {
-    lastPressTime2 = currentTime;
-    byte note = config.buttonNotes[1];
-    if (Serial) {
-      Serial.print("Button 2: Note ");
-      Serial.println(note);
+    // If raw reading changed, reset debounce timer
+    if (reading != lastRawReading) {
+      lastDebounceTime = currentTime;
     }
-    SERIAL_MIDI.sendNoteOn(note, 127, 1);
-    USB_MIDI.sendNoteOn(note, 127, 1);
-    delay(5);
-    SERIAL_MIDI.sendNoteOff(note, 0, 1);
-    USB_MIDI.sendNoteOff(note, 0, 1);
-  }
 
-  // Button 3 - Uses config
-  if (digitalRead(BUTTON_PIN3) == LOW &&
-      (currentTime - lastPressTime3) > DEBOUNCE_DELAY) {
-    lastPressTime3 = currentTime;
-    byte note = config.buttonNotes[2];
-    if (Serial) {
-      Serial.print("Button 3: Note ");
-      Serial.println(note);
-    }
-    SERIAL_MIDI.sendNoteOn(note, 127, 1);
-    USB_MIDI.sendNoteOn(note, 127, 1);
-    delay(5);
-    SERIAL_MIDI.sendNoteOff(note, 0, 1);
-    USB_MIDI.sendNoteOff(note, 0, 1);
-  }
+    // Update raw reading immediately (for next comparison)
+    lastRawReading = reading;
 
-  // Button 4 - Uses config
-  if (digitalRead(BUTTON_PIN4) == LOW &&
-      (currentTime - lastPressTime4) > DEBOUNCE_DELAY) {
-    lastPressTime4 = currentTime;
-    byte note = config.buttonNotes[3];
-    if (Serial) {
-      Serial.print("Button 4: Note ");
-      Serial.println(note);
+    // If enough time has passed since last state change
+    if ((currentTime - lastDebounceTime) > DEBOUNCE_DELAY) {
+      // Check for falling edge (button press: HIGH -> LOW)
+      // Only trigger if we have a stable LOW reading and previous stable state
+      // was HIGH
+      if (reading == LOW && lastStableState == HIGH) {
+        byte note = config.buttonNotes[buttonIndex];
+        if (Serial) {
+          Serial.print("Button ");
+          Serial.print(buttonIndex + 1);
+          Serial.print(" pressed! Note ");
+          Serial.print(note);
+          Serial.print(" (pin=");
+          Serial.print(pin);
+          Serial.println(")");
+        }
+        SERIAL_MIDI.sendNoteOn(note, 127, 1);
+        USB_MIDI.sendNoteOn(note, 127, 1);
+        delay(5);
+        SERIAL_MIDI.sendNoteOff(note, 0, 1);
+        USB_MIDI.sendNoteOff(note, 0, 1);
+      }
+      // Update stable state only after debounce period
+      lastStableState = reading;
     }
-    SERIAL_MIDI.sendNoteOn(note, 127, 1);
-    USB_MIDI.sendNoteOn(note, 127, 1);
-    delay(5);
-    SERIAL_MIDI.sendNoteOff(note, 0, 1);
-    USB_MIDI.sendNoteOff(note, 0, 1);
-  }
+  };
 
-  // Button 5 - Uses config
-  if (digitalRead(BUTTON_PIN5) == LOW &&
-      (currentTime - lastPressTime5) > DEBOUNCE_DELAY) {
-    lastPressTime5 = currentTime;
-    byte note = config.buttonNotes[4];
-    if (Serial) {
-      Serial.print("Button 5: Note ");
-      Serial.println(note);
-    }
-    SERIAL_MIDI.sendNoteOn(note, 127, 1);
-    USB_MIDI.sendNoteOn(note, 127, 1);
-    delay(5);
-    SERIAL_MIDI.sendNoteOff(note, 0, 1);
-    USB_MIDI.sendNoteOff(note, 0, 1);
-  }
-
-  // Button 6 - Uses config
-  if (digitalRead(BUTTON_PIN6) == LOW &&
-      (currentTime - lastPressTime6) > DEBOUNCE_DELAY) {
-    lastPressTime6 = currentTime;
-    byte note = config.buttonNotes[5];
-    if (Serial) {
-      Serial.print("Button 6: Note ");
-      Serial.println(note);
-    }
-    SERIAL_MIDI.sendNoteOn(note, 127, 1);
-    USB_MIDI.sendNoteOn(note, 127, 1);
-    delay(5);
-    SERIAL_MIDI.sendNoteOff(note, 0, 1);
-    USB_MIDI.sendNoteOff(note, 0, 1);
-  }
-
-  // Button 7 - Uses config
-  if (digitalRead(BUTTON_PIN7) == LOW &&
-      (currentTime - lastPressTime7) > DEBOUNCE_DELAY) {
-    lastPressTime7 = currentTime;
-    byte note = config.buttonNotes[6];
-    if (Serial) {
-      Serial.print("Button 7: Note ");
-      Serial.println(note);
-    }
-    SERIAL_MIDI.sendNoteOn(note, 127, 1);
-    USB_MIDI.sendNoteOn(note, 127, 1);
-    delay(5);
-    SERIAL_MIDI.sendNoteOff(note, 0, 1);
-    USB_MIDI.sendNoteOff(note, 0, 1);
-  }
+  // Check all buttons with proper debouncing
+  checkButton(BUTTON_PIN1, lastRawReading1, lastStableState1, lastDebounceTime1,
+              0);
+  checkButton(BUTTON_PIN2, lastRawReading2, lastStableState2, lastDebounceTime2,
+              1);
+  checkButton(BUTTON_PIN3, lastRawReading3, lastStableState3, lastDebounceTime3,
+              2);
+  checkButton(BUTTON_PIN4, lastRawReading4, lastStableState4, lastDebounceTime4,
+              3);
+  checkButton(BUTTON_PIN5, lastRawReading5, lastStableState5, lastDebounceTime5,
+              4);
+  checkButton(BUTTON_PIN6, lastRawReading6, lastStableState6, lastDebounceTime6,
+              5);
+  checkButton(BUTTON_PIN7, lastRawReading7, lastStableState7, lastDebounceTime7,
+              6);
 }
 
 void loop() {
