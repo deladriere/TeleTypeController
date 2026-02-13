@@ -18,8 +18,9 @@
 // MEMORY MAP OVERVIEW
 // ============================================================================
 // 0x0000-0x000F : Header (16 bytes)
-// 0x0010-0x001F : Button Mappings (16 bytes) - 16 buttons
-// 0x0020-0x002F : Pot Mappings (16 bytes) - 4 pots × 2 bytes each
+// 0x0010-0x0023 : Button Mappings (20 bytes) - 5 buttons × 4 banks
+// 0x0024-0x0027 : Reserved (padding)
+// 0x0028-0x002F : Pot Mappings (8 bytes) - 4 pots × 2 bytes each
 // 0x0030-0x003F : Encoder Mappings (16 bytes) - 4 encoders × 2 bytes each
 // 0x0040-0x0041 : Checksum (2 bytes)
 // 0x0100+       : User Data (free space)
@@ -42,19 +43,23 @@
 #define CONFIG_VERSION 0x01
 
 // ============================================================================
-// BUTTON MAPPINGS (0x0010-0x001F)
+// BUTTON MAPPINGS (0x0010-0x0023)
 // ============================================================================
+// 5 physical buttons × 4 banks = 20 note slots
 // Each button: 1 byte = MIDI Note number (0-127)
+// Layout: [Bank0: btn1-5][Bank1: btn1-5][Bank2: btn1-5][Bank3: btn1-5]
 #define EEPROM_ADDR_BUTTONS 0x0010
-#define MAX_BUTTONS 16
+#define MAX_BUTTONS 20       // 5 buttons × 4 banks
+#define NUM_NOTE_BUTTONS 5   // Physical note buttons (pins 2-6)
+#define NUM_BANKS 4           // 4 banks selected by 2-bit binary (pins 7,8)
 
 // ============================================================================
-// POT MAPPINGS (0x0020-0x002F)
+// POT MAPPINGS (0x0028-0x002F)
 // ============================================================================
 // Each pot: 2 bytes
 //   Byte 0: Type (0=CC, 1=PitchBend)
 //   Byte 1: Value (CC number if Type=0, unused if Type=1)
-#define EEPROM_ADDR_POTS 0x0020
+#define EEPROM_ADDR_POTS 0x0028
 #define MAX_POTS 4
 #define POT_TYPE_CC 0
 #define POT_TYPE_PITCHBEND 1
@@ -85,24 +90,17 @@
 // DEFAULT FACTORY MAPPINGS
 // ============================================================================
 
-// Default button to MIDI note mappings (Drum kit layout)
+// Default button to MIDI note mappings
+// 5 buttons × 4 banks = 20 slots, sequential starting at 36
 const uint8_t DEFAULT_BUTTON_NOTES[MAX_BUTTONS] = {
-    36, // Button 1:  Kick Drum
-    38, // Button 2:  Snare
-    42, // Button 3:  Closed Hi-Hat
-    46, // Button 4:  Open Hi-Hat
-    37, // Button 5:  Side Stick
-    39, // Button 6:  Clap
-    49, // Button 7:  Crash Cymbal
-    48, // Button 8:  Hi Tom (future)
-    47, // Button 9:  Mid Tom (future)
-    45, // Button 10: Low Tom (future)
-    51, // Button 11: Ride Cymbal (future)
-    53, // Button 12: Ride Bell (future)
-    55, // Button 13: Splash Cymbal (future)
-    52, // Button 14: Chinese Cymbal (future)
-    44, // Button 15: Pedal Hi-Hat (future)
-    56  // Button 16: Cowbell (future)
+    // Bank 0 (indices 0-4)
+    36, 37, 38, 39, 40,
+    // Bank 1 (indices 5-9)
+    41, 42, 43, 44, 45,
+    // Bank 2 (indices 10-14)
+    46, 47, 48, 49, 50,
+    // Bank 3 (indices 15-19)
+    51, 52, 53, 54, 55
 };
 
 // Default pot mappings (Standard CCs 1-4)

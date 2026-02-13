@@ -7,6 +7,7 @@
 #define PICO_VERSION "v1.1"
 
 #include "config_eeprom.h"
+#include <Adafruit_NeoPixel.h>
 #include <Adafruit_TinyUSB.h>
 #include <EEPROM.h>
 #include <MIDI.h>
@@ -16,14 +17,37 @@ uint16_t calculateChecksum();
 void resetConfigToDefaults();
 void saveConfig();
 bool loadConfig();
+int readBank();
 
+// 5 note buttons (pins 2-6)
 #define BUTTON_PIN1 2
 #define BUTTON_PIN2 3
 #define BUTTON_PIN3 4
 #define BUTTON_PIN4 5
 #define BUTTON_PIN5 6
-#define BUTTON_PIN6 7
-#define BUTTON_PIN7 8
+
+// 2 bank selector pins (binary: 4 banks)
+// Both HIGH (released) = Bank 0, pin7 LOW = +1, pin8 LOW = +2
+#define BANK_SEL_PIN0 7  // Bit 0
+#define BANK_SEL_PIN1 8  // Bit 1
+
+// Built-in WS2812 RGB LED on RP2040 Zero
+#define LED_PIN 16
+#define LED_COUNT 1
+Adafruit_NeoPixel led(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+
+// Non-blocking LED flash state
+unsigned long ledOnTime = 0;
+bool ledActive = false;
+const unsigned long LED_FLASH_MS = 100; // Flash duration
+
+// Bank colors: Red, Green, Blue, White
+const uint32_t BANK_COLORS[NUM_BANKS] = {
+    0xFF0000, // Bank 0: Red
+    0x00FF00, // Bank 1: Green
+    0x0000FF, // Bank 2: Blue
+    0xFFFFFF  // Bank 3: White
+};
 
 #define POTENTIOMETER_PIN1 A0
 #define POTENTIOMETER_PIN2 A1
@@ -44,29 +68,23 @@ MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usbd_midi, USB_MIDI);
 // Hardware Serial MIDI setup (TX0 = GPIO0)
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, SERIAL_MIDI);
 
-// Debounce variables for all buttons
+// Debounce variables for 5 note buttons
 // Track previous raw reading, last stable state, and last state change time
 bool lastRawReading1 = HIGH;
 bool lastRawReading2 = HIGH;
 bool lastRawReading3 = HIGH;
 bool lastRawReading4 = HIGH;
 bool lastRawReading5 = HIGH;
-bool lastRawReading6 = HIGH;
-bool lastRawReading7 = HIGH;
 bool lastStableState1 = HIGH;
 bool lastStableState2 = HIGH;
 bool lastStableState3 = HIGH;
 bool lastStableState4 = HIGH;
 bool lastStableState5 = HIGH;
-bool lastStableState6 = HIGH;
-bool lastStableState7 = HIGH;
 unsigned long lastDebounceTime1 = 0;
 unsigned long lastDebounceTime2 = 0;
 unsigned long lastDebounceTime3 = 0;
 unsigned long lastDebounceTime4 = 0;
 unsigned long lastDebounceTime5 = 0;
-unsigned long lastDebounceTime6 = 0;
-unsigned long lastDebounceTime7 = 0;
 const unsigned long DEBOUNCE_DELAY = 50; // 50ms debounce delay
 
 // Configuration in RAM (current working config)
@@ -78,15 +96,35 @@ struct Config {
   byte encModes[MAX_ENCODERS];
 } config;
 
+// Read bank from selector pins (active LOW with pull-ups)
+// Pin 7 = bit 0, Pin 8 = bit 1
+// Both released (HIGH) = Bank 0
+// Pin 7 pressed (LOW)  = Bank 1
+// Pin 8 pressed (LOW)  = Bank 2
+// Both pressed (LOW)   = Bank 3
+int readBank() {
+  int bit0 = (digitalRead(BANK_SEL_PIN0) == LOW) ? 1 : 0;
+  int bit1 = (digitalRead(BANK_SEL_PIN1) == LOW) ? 1 : 0;
+  return bit0 | (bit1 << 1);
+}
+
 void setup() {
-  // Initialize buttons first
+  // Initialize 5 note buttons
   pinMode(BUTTON_PIN1, INPUT_PULLUP);
   pinMode(BUTTON_PIN2, INPUT_PULLUP);
   pinMode(BUTTON_PIN3, INPUT_PULLUP);
   pinMode(BUTTON_PIN4, INPUT_PULLUP);
   pinMode(BUTTON_PIN5, INPUT_PULLUP);
-  pinMode(BUTTON_PIN6, INPUT_PULLUP);
-  pinMode(BUTTON_PIN7, INPUT_PULLUP);
+
+  // Initialize bank selector pins (active LOW)
+  pinMode(BANK_SEL_PIN0, INPUT_PULLUP);
+  pinMode(BANK_SEL_PIN1, INPUT_PULLUP);
+
+  // Initialize built-in RGB LED
+  led.begin();
+  led.setBrightness(30); // Keep it dim to not blind you
+  led.clear();
+  led.show();
 
   // Initialize button states and debounce times
   unsigned long initTime = millis();
@@ -95,22 +133,16 @@ void setup() {
   lastRawReading3 = digitalRead(BUTTON_PIN3);
   lastRawReading4 = digitalRead(BUTTON_PIN4);
   lastRawReading5 = digitalRead(BUTTON_PIN5);
-  lastRawReading6 = digitalRead(BUTTON_PIN6);
-  lastRawReading7 = digitalRead(BUTTON_PIN7);
   lastStableState1 = lastRawReading1;
   lastStableState2 = lastRawReading2;
   lastStableState3 = lastRawReading3;
   lastStableState4 = lastRawReading4;
   lastStableState5 = lastRawReading5;
-  lastStableState6 = lastRawReading6;
-  lastStableState7 = lastRawReading7;
   lastDebounceTime1 = initTime;
   lastDebounceTime2 = initTime;
   lastDebounceTime3 = initTime;
   lastDebounceTime4 = initTime;
   lastDebounceTime5 = initTime;
-  lastDebounceTime6 = initTime;
-  lastDebounceTime7 = initTime;
 
   // Initialize TinyUSB Device FIRST
   TinyUSB_Device_Init(0);
@@ -145,10 +177,15 @@ void setup() {
 
   Serial.println("\n=== OS MIDI Controller ===");
   Serial.println("Version: " PICO_VERSION);
-  Serial.println("7 Buttons initialized");
+  Serial.println("5 Note buttons + 2 Bank selectors (4 banks)");
   Serial.println("USB MIDI: Active");
   Serial.println("Serial MIDI (TX0): Active");
   Serial.println("EEPROM: Emulated (flash)");
+
+  // Show current bank at boot
+  int bank = readBank();
+  Serial.print("Current Bank: ");
+  Serial.println(bank);
   Serial.println("Type /h for help\n");
 
   // Auto-load configuration from EEPROM
@@ -291,7 +328,8 @@ bool loadConfig() {
 void printHelp() {
   Serial.println("\n=== Command Help ===");
   Serial.println("MAPPING:");
-  Serial.println("  /b <1-16> <0-127>  - Map button to MIDI note");
+  Serial.println("  /b <1-20> <0-127>  - Map button slot to MIDI note");
+  Serial.println("     Slots: Bank0=1-5, Bank1=6-10, Bank2=11-15, Bank3=16-20");
   Serial.println("  /p <1-4> cc <0-127> - Map pot to CC number");
   Serial.println("  /p <1-4> pb        - Map pot to Pitch Bend");
   Serial.println("  /m                 - Show all current mappings");
@@ -304,24 +342,35 @@ void printHelp() {
   Serial.println("INFO:");
   Serial.println("  /h - Show this help");
   Serial.println("  /d - Dump EEPROM contents");
-  Serial.println("  /test - Test button states");
+  Serial.println("  /test - Test button/bank states");
   Serial.println("====================\n");
 }
 
 void printMidiMapping() {
   Serial.println("\n=== Current MIDI Mapping ===");
 
-  Serial.println("\nBUTTONS:");
-  for (int i = 0; i < 7; i++) { // Only show physical buttons 1-7
-    Serial.print("  Button ");
-    Serial.print(i + 1);
-    Serial.print(" (GPIO");
-    Serial.print(BUTTON_PIN1 + i);
-    Serial.print(") -> Note ");
-    Serial.println(config.buttonNotes[i]);
-  }
-  if (MAX_BUTTONS > 7) {
-    Serial.println("  Buttons 8-16: Reserved for future expansion");
+  int currentBank = readBank();
+  Serial.print("Active Bank: ");
+  Serial.print(currentBank);
+  Serial.print(" (Pin7=");
+  Serial.print(digitalRead(BANK_SEL_PIN0) == LOW ? "LOW" : "HIGH");
+  Serial.print(", Pin8=");
+  Serial.print(digitalRead(BANK_SEL_PIN1) == LOW ? "LOW" : "HIGH");
+  Serial.println(")");
+
+  Serial.println("\nBUTTONS (5 buttons x 4 banks):");
+  for (int bank = 0; bank < NUM_BANKS; bank++) {
+    Serial.print("  Bank ");
+    Serial.print(bank);
+    if (bank == currentBank) Serial.print(" *");
+    Serial.println(":");
+    for (int btn = 0; btn < NUM_NOTE_BUTTONS; btn++) {
+      int idx = bank * NUM_NOTE_BUTTONS + btn;
+      Serial.print("    Btn ");
+      Serial.print(btn + 1);
+      Serial.print(" -> Note ");
+      Serial.println(config.buttonNotes[idx]);
+    }
   }
 
   Serial.println("\nPOTENTIOMETERS:");
@@ -333,7 +382,7 @@ void printMidiMapping() {
     Serial.print(") -> ");
 
     if (config.potTypes[i] == POT_TYPE_PITCHBEND) {
-      Serial.println("Pitch Bend ★");
+      Serial.println("Pitch Bend");
     } else {
       Serial.print("CC ");
       Serial.println(config.potValues[i]);
@@ -483,22 +532,28 @@ void Process_Serial_Commands() {
     } else if (command == "/d") {
       dumpEEPROM();
     } else if (command == "/test") {
-      // Test button states
-      Serial.println("\n=== Button Test ===");
-      Serial.print("Button 1 (pin ");
-      Serial.print(BUTTON_PIN1);
-      Serial.print("): ");
-      Serial.println(digitalRead(BUTTON_PIN1) == LOW ? "PRESSED" : "RELEASED");
-      Serial.print("Button 2 (pin ");
-      Serial.print(BUTTON_PIN2);
-      Serial.print("): ");
-      Serial.println(digitalRead(BUTTON_PIN2) == LOW ? "PRESSED" : "RELEASED");
-      Serial.print("Button 3 (pin ");
-      Serial.print(BUTTON_PIN3);
-      Serial.print("): ");
-      Serial.println(digitalRead(BUTTON_PIN3) == LOW ? "PRESSED" : "RELEASED");
-      Serial.print("Config Button 1 Note: ");
-      Serial.println(config.buttonNotes[0]);
+      // Test button and bank states
+      int bank = readBank();
+      int offset = bank * NUM_NOTE_BUTTONS;
+      Serial.println("\n=== Button/Bank Test ===");
+      Serial.print("Bank Sel Pin7: ");
+      Serial.println(digitalRead(BANK_SEL_PIN0) == LOW ? "LOW (1)" : "HIGH (0)");
+      Serial.print("Bank Sel Pin8: ");
+      Serial.println(digitalRead(BANK_SEL_PIN1) == LOW ? "LOW (1)" : "HIGH (0)");
+      Serial.print("Active Bank: ");
+      Serial.println(bank);
+      Serial.println("");
+      for (int i = 0; i < NUM_NOTE_BUTTONS; i++) {
+        int pin = BUTTON_PIN1 + i;
+        Serial.print("Btn ");
+        Serial.print(i + 1);
+        Serial.print(" (pin ");
+        Serial.print(pin);
+        Serial.print("): ");
+        Serial.print(digitalRead(pin) == LOW ? "PRESSED" : "RELEASED");
+        Serial.print("  -> Note ");
+        Serial.println(config.buttonNotes[offset + i]);
+      }
       Serial.println("==================\n");
     } else if (command.length() > 0) {
       Serial.print("Unknown command: ");
@@ -508,10 +563,31 @@ void Process_Serial_Commands() {
   }
 }
 
+// Flash the LED with the current bank color (non-blocking)
+void flashLED(int bank) {
+  uint32_t color = BANK_COLORS[bank];
+  led.setPixelColor(0, color);
+  led.show();
+  ledOnTime = millis();
+  ledActive = true;
+}
+
+// Call in loop() to turn off LED after flash duration
+void updateLED() {
+  if (ledActive && (millis() - ledOnTime) >= LED_FLASH_MS) {
+    led.clear();
+    led.show();
+    ledActive = false;
+  }
+}
+
 void Scan_User() {
   unsigned long currentTime = millis();
+  int bank = readBank();
+  int bankOffset = bank * NUM_NOTE_BUTTONS; // 0, 5, 10, or 15
 
   // Helper function to check a single button with debouncing
+  // buttonIndex is the physical button (0-4), note index = bankOffset + buttonIndex
   auto checkButton = [&](int pin, bool &lastRawReading, bool &lastStableState,
                          unsigned long &lastDebounceTime, int buttonIndex) {
     bool reading = digitalRead(pin);
@@ -527,18 +603,20 @@ void Scan_User() {
     // If enough time has passed since last state change
     if ((currentTime - lastDebounceTime) > DEBOUNCE_DELAY) {
       // Check for falling edge (button press: HIGH -> LOW)
-      // Only trigger if we have a stable LOW reading and previous stable state
-      // was HIGH
       if (reading == LOW && lastStableState == HIGH) {
-        byte note = config.buttonNotes[buttonIndex];
+        int noteIndex = bankOffset + buttonIndex;
+        byte note = config.buttonNotes[noteIndex];
+        flashLED(bank); // Flash LED with bank color
         if (Serial) {
-          Serial.print("Button ");
+          Serial.print("Btn ");
           Serial.print(buttonIndex + 1);
-          Serial.print(" pressed! Note ");
+          Serial.print(" Bank ");
+          Serial.print(bank);
+          Serial.print(" -> Note ");
           Serial.print(note);
-          Serial.print(" (pin=");
-          Serial.print(pin);
-          Serial.println(")");
+          Serial.print(" [idx ");
+          Serial.print(noteIndex);
+          Serial.println("]");
         }
         SERIAL_MIDI.sendNoteOn(note, 127, 1);
         USB_MIDI.sendNoteOn(note, 127, 1);
@@ -551,26 +629,17 @@ void Scan_User() {
     }
   };
 
-  // Check all buttons with proper debouncing
-  checkButton(BUTTON_PIN1, lastRawReading1, lastStableState1, lastDebounceTime1,
-              0);
-  checkButton(BUTTON_PIN2, lastRawReading2, lastStableState2, lastDebounceTime2,
-              1);
-  checkButton(BUTTON_PIN3, lastRawReading3, lastStableState3, lastDebounceTime3,
-              2);
-  checkButton(BUTTON_PIN4, lastRawReading4, lastStableState4, lastDebounceTime4,
-              3);
-  checkButton(BUTTON_PIN5, lastRawReading5, lastStableState5, lastDebounceTime5,
-              4);
-  checkButton(BUTTON_PIN6, lastRawReading6, lastStableState6, lastDebounceTime6,
-              5);
-  checkButton(BUTTON_PIN7, lastRawReading7, lastStableState7, lastDebounceTime7,
-              6);
+  // Check 5 note buttons with proper debouncing
+  checkButton(BUTTON_PIN1, lastRawReading1, lastStableState1, lastDebounceTime1, 0);
+  checkButton(BUTTON_PIN2, lastRawReading2, lastStableState2, lastDebounceTime2, 1);
+  checkButton(BUTTON_PIN3, lastRawReading3, lastStableState3, lastDebounceTime3, 2);
+  checkButton(BUTTON_PIN4, lastRawReading4, lastStableState4, lastDebounceTime4, 3);
+  checkButton(BUTTON_PIN5, lastRawReading5, lastStableState5, lastDebounceTime5, 4);
 }
 
 void loop() {
-  // Read any incoming MIDI (optional, keeps MIDI library happy)
   Scan_User();
+  updateLED(); // Non-blocking LED flash timeout
   Process_Serial_Commands();
   USB_MIDI.read();
   SERIAL_MIDI.read();
