@@ -11,6 +11,7 @@
 #include <Adafruit_TinyUSB.h>
 #include <EEPROM.h>
 #include <MIDI.h>
+#include <Wire.h>
 
 // Forward declarations
 uint16_t calculateChecksum();
@@ -87,6 +88,16 @@ unsigned long lastDebounceTime4 = 0;
 unsigned long lastDebounceTime5 = 0;
 const unsigned long DEBOUNCE_DELAY = 50; // 50ms debounce delay
 
+// Potentiometer state
+const int POT_PINS[MAX_POTS] = {A0, A1, A2, A3};
+int potSmoothed[MAX_POTS] = {0, 0, 0, 0};   // Smoothed ADC value (0-1023)
+int lastMidiValue[MAX_POTS] = {-1, -1, -1, -1}; // Last sent MIDI value (-1 = never sent)
+const int POT_THRESHOLD = 4;  // ADC noise threshold (prevents jitter, ~0.4%)
+const float POT_ALPHA = 0.15; // Smoothing factor (0.0=slow, 1.0=no smoothing)
+bool adcDebugMode = false;    // Toggle with /a command
+unsigned long lastAdcPrint = 0;
+const unsigned long ADC_PRINT_INTERVAL = 200; // Print every 200ms
+
 // Configuration in RAM (current working config)
 struct Config {
   byte buttonNotes[MAX_BUTTONS];
@@ -144,6 +155,14 @@ void setup() {
   lastDebounceTime4 = initTime;
   lastDebounceTime5 = initTime;
 
+  // Initialize potentiometer smoothing with current readings
+  // Double-read each to avoid RP2040 ADC crosstalk
+  for (int i = 0; i < MAX_POTS; i++) {
+    analogRead(POT_PINS[i]);       // Discard (mux settling)
+    delayMicroseconds(50);
+    potSmoothed[i] = analogRead(POT_PINS[i]); // Actual
+  }
+
   // Initialize TinyUSB Device FIRST
   TinyUSB_Device_Init(0);
 
@@ -163,6 +182,11 @@ void setup() {
   // Start Hardware Serial MIDI on TX0 (GPIO0) at standard MIDI baud rate
   Serial1.setTX(0); // TX0 = GPIO0
   SERIAL_MIDI.begin(MIDI_CHANNEL_OMNI);
+
+  // Initialize I2C1 on GPIO10 (SDA1) / GPIO11 (SCL1)
+  Wire1.setSDA(10);
+  Wire1.setSCL(11);
+  Wire1.begin();
 
   // Initialize emulated EEPROM (stored in flash)
   EEPROM.begin(EEPROM_SIZE);
@@ -343,6 +367,8 @@ void printHelp() {
   Serial.println("  /h - Show this help");
   Serial.println("  /d - Dump EEPROM contents");
   Serial.println("  /test - Test button/bank states");
+  Serial.println("  /a - Toggle ADC debug (raw pot values)");
+  Serial.println("  /i - Scan I2C bus (Wire1: GP10/GP11)");
   Serial.println("====================\n");
 }
 
@@ -454,6 +480,35 @@ void dumpEEPROM() {
   Serial.println("\n=== End of EEPROM Dump ===\n");
 }
 
+void scanI2C() {
+  Serial.println("\n=== I2C Scan (Wire1: SDA=GP10, SCL=GP11) ===");
+  int found = 0;
+
+  for (byte addr = 1; addr < 127; addr++) {
+    Wire1.beginTransmission(addr);
+    byte error = Wire1.endTransmission();
+
+    if (error == 0) {
+      Serial.print("  0x");
+      if (addr < 0x10) Serial.print("0");
+      Serial.print(addr, HEX);
+      Serial.print(" (");
+      Serial.print(addr);
+      Serial.println(") - found");
+      found++;
+    }
+  }
+
+  if (found == 0) {
+    Serial.println("  No devices found");
+  } else {
+    Serial.print("  Total: ");
+    Serial.print(found);
+    Serial.println(" device(s)");
+  }
+  Serial.println("====================\n");
+}
+
 void Process_Serial_Commands() {
   if (Serial.available() > 0) {
     String command = Serial.readStringUntil('\n');
@@ -555,6 +610,12 @@ void Process_Serial_Commands() {
         Serial.println(config.buttonNotes[offset + i]);
       }
       Serial.println("==================\n");
+    } else if (command == "/a") {
+      adcDebugMode = !adcDebugMode;
+      Serial.print("ADC debug: ");
+      Serial.println(adcDebugMode ? "ON" : "OFF");
+    } else if (command == "/i") {
+      scanI2C();
     } else if (command.length() > 0) {
       Serial.print("Unknown command: ");
       Serial.println(command);
@@ -637,8 +698,64 @@ void Scan_User() {
   checkButton(BUTTON_PIN5, lastRawReading5, lastStableState5, lastDebounceTime5, 4);
 }
 
+void Scan_Pots() {
+  for (int i = 0; i < MAX_POTS; i++) {
+    // RP2040 ADC crosstalk fix: read twice, discard first
+    // The ADC mux needs time to settle when switching channels
+    analogRead(POT_PINS[i]); // Discard first read (crosstalk)
+    delayMicroseconds(50);   // Let mux settle
+    int raw = analogRead(POT_PINS[i]); // Actual reading
+
+    // Exponential moving average for smoothing
+    potSmoothed[i] = (int)(POT_ALPHA * raw + (1.0 - POT_ALPHA) * potSmoothed[i]);
+
+    // Only send if value changed enough from last sent value
+    int smoothed = potSmoothed[i];
+
+    if (config.potTypes[i] == POT_TYPE_PITCHBEND) {
+      // Pitch Bend: 14-bit value, map 0-1023 -> -8192 to +8191
+      int pb = map(smoothed, 0, 1023, -8192, 8191);
+      // Convert to 7-bit equivalent for change detection
+      int pb7 = smoothed >> 3; // 0-127 range for threshold check
+      if (lastMidiValue[i] < 0 || abs(pb7 - lastMidiValue[i]) >= 1) {
+        SERIAL_MIDI.sendPitchBend(pb, 1);
+        USB_MIDI.sendPitchBend(pb, 1);
+        lastMidiValue[i] = pb7;
+      }
+    } else {
+      // CC: map 0-1023 -> 0-127
+      int cc = smoothed >> 3; // Fast divide by 8 (1024/128 = 8)
+      if (cc > 127) cc = 127;
+
+      if (lastMidiValue[i] < 0 || cc != lastMidiValue[i]) {
+        byte ccNum = config.potValues[i];
+        SERIAL_MIDI.sendControlChange(ccNum, cc, 1);
+        USB_MIDI.sendControlChange(ccNum, cc, 1);
+        lastMidiValue[i] = cc;
+      }
+    }
+  }
+
+  // ADC debug: print all 4 raw values on one line, throttled
+  if (adcDebugMode && Serial && (millis() - lastAdcPrint >= ADC_PRINT_INTERVAL)) {
+    lastAdcPrint = millis();
+    for (int i = 0; i < MAX_POTS; i++) {
+      analogRead(POT_PINS[i]); // Discard
+      delayMicroseconds(50);
+      int raw = analogRead(POT_PINS[i]);
+      Serial.print("adc");
+      Serial.print(i);
+      Serial.print(":");
+      Serial.print(raw);
+      if (i < MAX_POTS - 1) Serial.print("\t");
+    }
+    Serial.println();
+  }
+}
+
 void loop() {
   Scan_User();
+  Scan_Pots();
   updateLED(); // Non-blocking LED flash timeout
   Process_Serial_Commands();
   USB_MIDI.read();
