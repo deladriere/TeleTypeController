@@ -1,0 +1,38 @@
+# PlatformIO
+.pio/
+.vscode/
+.clang_complete
+.gcc-flags.json
+compile_commands.json
+
+# Build artifacts
+*.o
+*.elf
+*.bin
+*.hex
+*.uf2
+
+# Clangd cache/index files
+*.idx
+**/*.idx
+.cache/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+*.code-workspace
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
