@@ -92,10 +92,12 @@ The interface sends these commands to the device:
 | `/b <1-7> <0-127>` | Map button to MIDI note |
 | `/p <1-4> cc <0-127>` | Map pot to CC |
 | `/p <1-4> pb` | Map pot to Pitch Bend |
+| `/pi <1-4> <0|1>` | Ignore pot ADC input |
 | `/save` | Save to EEPROM |
 | `/load` | Load from EEPROM |
 | `/reset` | Reset to defaults |
 | `/m` | Show current mappings |
+| `/v` | Show firmware version |
 
 ## Default Mappings
 
@@ -186,8 +188,6 @@ Dark theme with gradient design
 ---
 
 **Need Help?** Check the main project documentation or open an issue.
-
-
 
 
 

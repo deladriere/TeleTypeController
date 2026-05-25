@@ -444,10 +444,64 @@
             align-items: center;
             gap: 5px;
             cursor: pointer;
+            color: rgba(224, 224, 224, 0.75);
+        }
+
+        .radio-label:has(input[type="radio"]:checked) {
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .pot-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .ignore-label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            color: #f2c94c;
         }
 
         input[type="radio"] {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.45);
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.35);
             cursor: pointer;
+            display: inline-grid;
+            place-content: center;
+        }
+
+        input[type="radio"]::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            transform: scale(0);
+            transition: transform 0.12s ease;
+            background: #ffffff;
+        }
+
+        input[type="radio"]:checked {
+            border-color: #ffffff;
+            background: rgba(255, 255, 255, 0.16);
+            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.25);
+        }
+
+        input[type="radio"]:checked::before {
+            transform: scale(1);
+        }
+
+        input[type="radio"]:focus-visible {
+            outline: 2px solid #00d4ff;
+            outline-offset: 2px;
         }
 
         .footer {
@@ -472,6 +526,131 @@
                 transform: rotate(360deg);
             }
         }
+
+        .channel-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .channel-group label {
+            font-weight: 600;
+            color: #00d4ff;
+            white-space: nowrap;
+        }
+
+        .channel-select {
+            width: 70px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.4);
+            color: #e0e0e0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            font-size: 1em;
+        }
+
+        .device-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .device-status.active {
+            background: #38ef7d;
+            box-shadow: 0 0 8px rgba(56, 239, 125, 0.5);
+        }
+
+        .device-status.inactive {
+            background: #666;
+        }
+
+        /* ── Hardware mode toggle ─────────────────────────────────────── */
+        .mode-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px 8px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.3);
+            color: #888;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .mode-btn:hover {
+            border-color: rgba(0, 212, 255, 0.4);
+            color: #ccc;
+        }
+
+        .mode-btn.active {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.12);
+            color: #00d4ff;
+            box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
+        }
+
+        .mode-hint {
+            font-size: 0.78em;
+            color: #666;
+            margin-top: 4px;
+            text-align: center;
+        }
+
+        /* ── Keypad 4×4 grid ─────────────────────────────────────────── */
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .keypad-cell {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 8px 6px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: border-color 0.2s;
+        }
+
+        .keypad-cell:hover {
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .keypad-label {
+            font-weight: 700;
+            color: #00d4ff;
+            font-size: 1.15em;
+            margin-bottom: 5px;
+        }
+
+        .keypad-note-input {
+            width: 100%;
+            padding: 4px 2px;
+            font-size: 0.85em;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.4);
+            color: #e0e0e0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            margin-bottom: 5px;
+            box-sizing: border-box;
+        }
+
+        .keypad-note-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 6px rgba(0, 212, 255, 0.3);
+        }
     </style>
 </head>
 
@@ -479,7 +658,7 @@
     <div class="container">
         <header>
             <h1>🎹 OS MIDI Controller</h1>
-            <p class="version">Configuration Interface v1.0</p>
+            <p class="version" id="appVersion">Configuration Interface v1.4 · Firmware: unknown</p>
         </header>
 
         <div class="connection-panel">
@@ -487,18 +666,101 @@
             <button class="btn btn-danger" id="disconnectBtn" onclick="disconnectSerial()" disabled>Disconnect</button>
             <div class="status disconnected" id="status">Disconnected</div>
             <button class="btn btn-small" onclick="loadMapping()">Load from Device (/m)</button>
+            <div class="channel-group">
+                <label for="midiChannel">MIDI Ch</label>
+                <select class="channel-select" id="midiChannel"></select>
+                <button class="btn-set" onclick="sendMidiChannel()">Set</button>
+            </div>
         </div>
 
         <div class="main-grid">
             <div class="left-panel">
+
+                <!-- Hardware Mode Selector -->
                 <div class="panel">
+                    <h2>⚙️ Hardware Mode</h2>
+                    <div class="mode-toggle">
+                        <button class="mode-btn active" id="modeBtn0" onclick="sendSetMode(0)">
+                            🎹 Button Mode<br>
+                            <small style="font-weight:400;font-size:0.8em;">5 buttons + 4 banks (pins 2-8)</small>
+                        </button>
+                        <button class="mode-btn" id="modeBtn1" onclick="sendSetMode(1)">
+                            🔢 Keypad Mode<br>
+                            <small style="font-weight:400;font-size:0.8em;">4×4 matrix (pins 2-9)</small>
+                        </button>
+                        <button class="mode-btn" id="modeBtn2" onclick="sendSetMode(2)">
+                            #️⃣ Keypad Access<br>
+                            <small style="font-weight:400;font-size:0.8em;">Type note digits, # sends</small>
+                        </button>
+                    </div>
+                    <div class="mode-hint">Changes take effect immediately · type /save to persist</div>
+                </div>
+
+                <!-- Button Mappings (mode 0 only) -->
+                <div class="panel" id="buttonMappingsPanel">
                     <h2>Button Mappings (5 x 4 Banks)</h2>
                     <div class="bank-grid" id="buttonMappings"></div>
+                </div>
+
+                <!-- Keypad Mappings (mode 1 only) -->
+                <div class="panel" id="keypadMappingsPanel" style="display:none;">
+                    <h2>🔢 Keypad Mappings (4×4)</h2>
+                    <div class="keypad-grid" id="keypadMappings"></div>
+                </div>
+
+                <!-- Keypad Access (mode 2 only) -->
+                <div class="panel" id="keypadAccessPanel" style="display:none;">
+                    <h2>#️⃣ Keypad Access</h2>
+                    <div class="mode-hint" style="text-align:left;">
+                        Enter MIDI note digits on the keypad, press # to send, press * to clear.
+                    </div>
                 </div>
 
                 <div class="panel">
                     <h2>🎚️ Potentiometer Mappings</h2>
                     <div class="mapping-grid" id="potMappings"></div>
+                </div>
+
+                <div class="panel">
+                    <h2>📡 I2C Devices</h2>
+                    <div class="mapping-grid" id="i2cDevices">
+                        <div class="mapping-item" id="sonicPanel">
+                            <div class="mapping-label">
+                                <span class="device-status inactive" id="sonicStatus"></span>Sonic2
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <label class="radio-label">
+                                    <input type="radio" name="sonicType" value="cc" checked onchange="updateSonicType()">
+                                    CC
+                                </label>
+                                <input type="number" id="sonicCC" min="0" max="127" value="11"
+                                       class="input-small" placeholder="CC#">
+                                <label class="radio-label">
+                                    <input type="radio" name="sonicType" value="pb" onchange="updateSonicType()">
+                                    PB
+                                </label>
+                            </div>
+                            <button class="btn btn-small" onclick="sendSonicMapping()">Set</button>
+                        </div>
+                        <div class="mapping-item" id="tofPanel">
+                            <div class="mapping-label">
+                                <span class="device-status inactive" id="tofStatus"></span>VL53L0X
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <label class="radio-label">
+                                    <input type="radio" name="tofType" value="cc" checked onchange="updateTofType()">
+                                    CC
+                                </label>
+                                <input type="number" id="tofCC" min="0" max="127" value="20"
+                                       class="input-small" placeholder="CC#">
+                                <label class="radio-label">
+                                    <input type="radio" name="tofType" value="pb" onchange="updateTofType()">
+                                    PB
+                                </label>
+                            </div>
+                            <button class="btn btn-small" onclick="sendTofMapping()">Set</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -533,17 +795,29 @@
         let reader;
         let writer;
         let isReading = false;
+        let currentMode = 0; // 0=buttons, 1=keypad, 2=keypad access
 
         // Default notes: 5 per bank, 4 banks = 20 total, sequential from 36
         const DEFAULT_NOTES = [
-            // Bank 0
-            36, 37, 38, 39, 40,
-            // Bank 1
-            41, 42, 43, 44, 45,
-            // Bank 2
-            46, 47, 48, 49, 50,
-            // Bank 3
-            51, 52, 53, 54, 55
+            36, 37, 38, 39, 40,  // Bank 0
+            41, 42, 43, 44, 45,  // Bank 1
+            46, 47, 48, 49, 50,  // Bank 2
+            51, 52, 53, 54, 55   // Bank 3
+        ];
+
+        // Default keypad notes (16 keys, sequential from 36)
+        const DEFAULT_KEYPAD_NOTES = [
+            36, 37, 38, 39,   // Row 0: 1 2 3 A
+            40, 41, 42, 43,   // Row 1: 4 5 6 B
+            44, 45, 46, 47,   // Row 2: 7 8 9 C
+            48, 49, 50, 51    // Row 3: * 0 # D
+        ];
+
+        const KEYPAD_LABELS = [
+            '1','2','3','A',
+            '4','5','6','B',
+            '7','8','9','C',
+            '*','0','#','D'
         ];
 
         const NUM_BUTTONS = 5;
@@ -551,6 +825,16 @@
 
         // Initialize UI
         function initUI() {
+            // Populate MIDI channel dropdown (1-16)
+            const chSelect = document.getElementById('midiChannel');
+            for (let ch = 1; ch <= 16; ch++) {
+                const opt = document.createElement('option');
+                opt.value = ch;
+                opt.textContent = ch;
+                if (ch === 1) opt.selected = true;
+                chSelect.appendChild(opt);
+            }
+
             // Create button mappings as 4 bank columns
             const buttonContainer = document.getElementById('buttonMappings');
             for (let bank = 0; bank < NUM_BANKS; bank++) {
@@ -574,6 +858,22 @@
                 buttonContainer.appendChild(col);
             }
 
+            // Create keypad mappings (4x4 grid, slots 1-16)
+            const keypadContainer = document.getElementById('keypadMappings');
+            for (let i = 0; i < 16; i++) {
+                const slot = i + 1; // 1-based slot number for /k command
+                const cell = document.createElement('div');
+                cell.className = 'keypad-cell';
+                cell.innerHTML = `
+                    <div class="keypad-label">${KEYPAD_LABELS[i]}</div>
+                    <input type="text" id="kpad${slot}" value="${DEFAULT_KEYPAD_NOTES[i]}"
+                           class="keypad-note-input" maxlength="3" inputmode="numeric"
+                           title="Slot ${slot} — key [${KEYPAD_LABELS[i]}]">
+                    <button class="btn-set" onclick="sendKeypadMapping(${slot})">Set</button>
+                `;
+                keypadContainer.appendChild(cell);
+            }
+
             // Create pot mappings
             const potContainer = document.getElementById('potMappings');
             const defaultPotCC = [1, 2, 74, 71];
@@ -582,7 +882,7 @@
                 item.className = 'mapping-item';
                 item.innerHTML = `
                     <div class="mapping-label">Pot ${i}</div>
-                    <div style="display: flex; gap: 10px; align-items: center;">
+                    <div class="pot-controls">
                         <label class="radio-label">
                             <input type="radio" name="pot${i}Type" value="cc" checked onchange="updatePotType(${i})">
                             CC
@@ -593,11 +893,42 @@
                             <input type="radio" name="pot${i}Type" value="pb" onchange="updatePotType(${i})">
                             PB
                         </label>
+                        <label class="ignore-label">
+                            <input type="checkbox" id="pot${i}Ignore" onchange="updatePotIgnore(${i})">
+                            Ignore ADC
+                        </label>
                     </div>
                     <button class="btn btn-small" onclick="sendPotMapping(${i})">Set</button>
                 `;
                 potContainer.appendChild(item);
             }
+        }
+
+        // ── Hardware mode ──────────────────────────────────────────────────
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('modeBtn0').classList.toggle('active', mode === 0);
+            document.getElementById('modeBtn1').classList.toggle('active', mode === 1);
+            document.getElementById('modeBtn2').classList.toggle('active', mode === 2);
+            document.getElementById('buttonMappingsPanel').style.display = mode === 0 ? '' : 'none';
+            document.getElementById('keypadMappingsPanel').style.display = mode === 1 ? '' : 'none';
+            document.getElementById('keypadAccessPanel').style.display = mode === 2 ? '' : 'none';
+        }
+
+        async function sendSetMode(mode) {
+            setMode(mode);
+            await sendCommand(`/mode ${mode}`);
+        }
+
+        // ── Keypad mapping ─────────────────────────────────────────────────
+        async function sendKeypadMapping(slot) {
+            const noteStr = document.getElementById(`kpad${slot}`).value.trim();
+            const note = parseInt(noteStr, 10);
+            if (isNaN(note) || note < 0 || note > 127) {
+                log('Keypad note must be 0-127', 'error');
+                return;
+            }
+            await sendCommand(`/k ${slot} ${note}`);
         }
 
         function updatePotType(potNum) {
@@ -610,6 +941,13 @@
             } else {
                 ccInput.disabled = false;
                 ccInput.style.opacity = '1';
+            }
+        }
+
+        async function updatePotIgnore(potNum, send = true) {
+            const ignored = document.getElementById(`pot${potNum}Ignore`).checked;
+            if (send && writer) {
+                await sendCommand(`/pi ${potNum} ${ignored ? 1 : 0}`);
             }
         }
 
@@ -649,6 +987,7 @@
 
                 // Start reading
                 readSerial();
+                setTimeout(() => sendCommand('/v'), 150);
 
             } catch (error) {
                 log(`✗ Connection error: ${error.message}`, 'error');
@@ -675,6 +1014,7 @@
             document.getElementById('disconnectBtn').disabled = true;
             document.getElementById('status').textContent = 'Disconnected';
             document.getElementById('status').className = 'status disconnected';
+            setFirmwareVersion('unknown');
 
             log('Disconnected', 'warning');
         }
@@ -741,6 +1081,7 @@
 
         async function sendPotMapping(potNum) {
             const isPB = document.querySelector(`input[name="pot${potNum}Type"]:checked`).value === 'pb';
+            const ignored = document.getElementById(`pot${potNum}Ignore`).checked;
 
             if (isPB) {
                 await sendCommand(`/p ${potNum} pb`);
@@ -751,6 +1092,54 @@
                     return;
                 }
                 await sendCommand(`/p ${potNum} cc ${cc}`);
+            }
+            await sendCommand(`/pi ${potNum} ${ignored ? 1 : 0}`);
+        }
+
+        async function sendMidiChannel() {
+            const ch = document.getElementById('midiChannel').value;
+            await sendCommand(`/ch ${ch}`);
+        }
+
+        function updateSonicType() {
+            const isPB = document.querySelector('input[name="sonicType"]:checked').value === 'pb';
+            const ccInput = document.getElementById('sonicCC');
+            ccInput.disabled = isPB;
+            ccInput.style.opacity = isPB ? '0.3' : '1';
+        }
+
+        function updateTofType() {
+            const isPB = document.querySelector('input[name="tofType"]:checked').value === 'pb';
+            const ccInput = document.getElementById('tofCC');
+            ccInput.disabled = isPB;
+            ccInput.style.opacity = isPB ? '0.3' : '1';
+        }
+
+        async function sendTofMapping() {
+            const isPB = document.querySelector('input[name="tofType"]:checked').value === 'pb';
+            if (isPB) {
+                await sendCommand('/t pb');
+            } else {
+                const cc = document.getElementById('tofCC').value;
+                if (cc < 0 || cc > 127) {
+                    log('CC number must be 0-127', 'error');
+                    return;
+                }
+                await sendCommand(`/t cc ${cc}`);
+            }
+        }
+
+        async function sendSonicMapping() {
+            const isPB = document.querySelector('input[name="sonicType"]:checked').value === 'pb';
+            if (isPB) {
+                await sendCommand('/s pb');
+            } else {
+                const cc = document.getElementById('sonicCC').value;
+                if (cc < 0 || cc > 127) {
+                    log('CC number must be 0-127', 'error');
+                    return;
+                }
+                await sendCommand(`/s cc ${cc}`);
             }
         }
 
@@ -804,7 +1193,44 @@
 
         let parseCurrentBank = -1; // Track which bank we're parsing from /m output
 
+        function setFirmwareVersion(version) {
+            const label = document.getElementById('appVersion');
+            label.textContent = `Configuration Interface v1.4 · Firmware: ${version}`;
+            document.title = `OS MIDI Controller${version === 'unknown' ? '' : ` ${version}`}`;
+        }
+
         function parseAndUpdateUI(line) {
+            // Parse firmware version from boot banner or /v response
+            const fwMatch = line.match(/^(?:Firmware\s+)?Version:\s+(.+)/i);
+            if (fwMatch) {
+                setFirmwareVersion(fwMatch[1].trim());
+                return;
+            }
+
+            // Parse MIDI channel: "MIDI Channel: 1"
+            const chMatch = line.match(/^MIDI Channel:\s+(\d+)/);
+            if (chMatch) {
+                document.getElementById('midiChannel').value = parseInt(chMatch[1]);
+                return;
+            }
+
+            // Parse hardware mode: "Hardware Mode: KEYPAD ACCESS (2)"
+            const modeMatch = line.match(/Hardware Mode:\s+([A-Z ]+)\s+\((\d+)\)/);
+            if (modeMatch) {
+                setMode(parseInt(modeMatch[2]));
+                return;
+            }
+
+            // Parse keypad note: "  Slot  1 [1] -> Note 36"
+            const keypadMatch = line.match(/Slot\s+(\d+)\s+\[([^\]]+)\]\s+->\s+Note\s+(\d+)/);
+            if (keypadMatch) {
+                const slot = parseInt(keypadMatch[1]);
+                const note = parseInt(keypadMatch[3]);
+                const input = document.getElementById(`kpad${slot}`);
+                if (input) input.value = note;
+                return;
+            }
+
             // Parse bank header from /m: "  Bank 0 *:" or "  Bank 1:"
             const bankMatch = line.match(/Bank\s+(\d+)/);
             if (bankMatch && line.indexOf('Btn') === -1) {
@@ -837,11 +1263,16 @@
                 const cc = parseInt(potCCMatch[2]);
                 const ccInput = document.getElementById(`pot${potNum}CC`);
                 const ccRadio = document.querySelector(`input[name="pot${potNum}Type"][value="cc"]`);
+                const ignoreInput = document.getElementById(`pot${potNum}Ignore`);
                 if (ccInput && ccRadio) {
                     ccRadio.checked = true;
                     ccInput.value = cc;
                     ccInput.disabled = false;
                     ccInput.style.opacity = '1';
+                }
+                if (ignoreInput) {
+                    ignoreInput.checked = line.includes('[ignored]');
+                    updatePotIgnore(potNum, false);
                 }
                 return;
             }
@@ -852,11 +1283,85 @@
                 const potNum = parseInt(potPBMatch[1]);
                 const pbRadio = document.querySelector(`input[name="pot${potNum}Type"][value="pb"]`);
                 const ccInput = document.getElementById(`pot${potNum}CC`);
+                const ignoreInput = document.getElementById(`pot${potNum}Ignore`);
                 if (pbRadio && ccInput) {
                     pbRadio.checked = true;
                     ccInput.disabled = true;
                     ccInput.style.opacity = '0.3';
                 }
+                if (ignoreInput) {
+                    ignoreInput.checked = line.includes('[ignored]');
+                    updatePotIgnore(potNum, false);
+                }
+                return;
+            }
+
+            // Parse Sonic2 status: "  Sonic2 (0x57): CC 11 [invert] [active]"
+            const sonicCCMatch = line.match(/Sonic2\s+\(0x57\):\s+CC\s+(\d+).*\[(active|inactive)\]/);
+            if (sonicCCMatch) {
+                const cc = parseInt(sonicCCMatch[1]);
+                const active = sonicCCMatch[2] === 'active';
+                const ccRadio = document.querySelector('input[name="sonicType"][value="cc"]');
+                const ccInput = document.getElementById('sonicCC');
+                const statusDot = document.getElementById('sonicStatus');
+                if (ccRadio) ccRadio.checked = true;
+                if (ccInput) { ccInput.value = cc; ccInput.disabled = false; ccInput.style.opacity = '1'; }
+                if (statusDot) statusDot.className = `device-status ${active ? 'active' : 'inactive'}`;
+                return;
+            }
+
+            const sonicPBMatch = line.match(/Sonic2\s+\(0x57\):\s+Pitch Bend.*\[(active|inactive)\]/);
+            if (sonicPBMatch) {
+                const active = sonicPBMatch[1] === 'active';
+                const pbRadio = document.querySelector('input[name="sonicType"][value="pb"]');
+                const ccInput = document.getElementById('sonicCC');
+                const statusDot = document.getElementById('sonicStatus');
+                if (pbRadio) pbRadio.checked = true;
+                if (ccInput) { ccInput.disabled = true; ccInput.style.opacity = '0.3'; }
+                if (statusDot) statusDot.className = `device-status ${active ? 'active' : 'inactive'}`;
+                return;
+            }
+
+            // Parse Sonic2 not connected: "  Sonic2 (0x57): Not connected"
+            const sonicOffMatch = line.match(/Sonic2\s+\(0x57\):\s+Not connected/);
+            if (sonicOffMatch) {
+                const statusDot = document.getElementById('sonicStatus');
+                if (statusDot) statusDot.className = 'device-status inactive';
+                return;
+            }
+
+            // Parse VL53L0X CC: "  VL53L0X (0x29): CC 20 [active]"
+            const tofCCMatch = line.match(/VL53L0X\s+\(0x29\):\s+CC\s+(\d+).*\[(active|inactive)\]/);
+            if (tofCCMatch) {
+                const cc = parseInt(tofCCMatch[1]);
+                const active = tofCCMatch[2] === 'active';
+                const ccRadio = document.querySelector('input[name="tofType"][value="cc"]');
+                const ccInput = document.getElementById('tofCC');
+                const statusDot = document.getElementById('tofStatus');
+                if (ccRadio) ccRadio.checked = true;
+                if (ccInput) { ccInput.value = cc; ccInput.disabled = false; ccInput.style.opacity = '1'; }
+                if (statusDot) statusDot.className = `device-status ${active ? 'active' : 'inactive'}`;
+                return;
+            }
+
+            // Parse VL53L0X Pitch Bend: "  VL53L0X (0x29): Pitch Bend [active]"
+            const tofPBMatch = line.match(/VL53L0X\s+\(0x29\):\s+Pitch Bend.*\[(active|inactive)\]/);
+            if (tofPBMatch) {
+                const active = tofPBMatch[1] === 'active';
+                const pbRadio = document.querySelector('input[name="tofType"][value="pb"]');
+                const ccInput = document.getElementById('tofCC');
+                const statusDot = document.getElementById('tofStatus');
+                if (pbRadio) pbRadio.checked = true;
+                if (ccInput) { ccInput.disabled = true; ccInput.style.opacity = '0.3'; }
+                if (statusDot) statusDot.className = `device-status ${active ? 'active' : 'inactive'}`;
+                return;
+            }
+
+            // Parse VL53L0X not connected
+            const tofOffMatch = line.match(/VL53L0X\s+\(0x29\):\s+Not connected/);
+            if (tofOffMatch) {
+                const statusDot = document.getElementById('tofStatus');
+                if (statusDot) statusDot.className = 'device-status inactive';
                 return;
             }
         }
