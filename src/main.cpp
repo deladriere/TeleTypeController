@@ -36,9 +36,9 @@ void handleKeypadAccessKey(int keyIdx);
 #define BUTTON_PIN5 6
 
 // 2 bank selector pins (binary: 4 banks)
-// Both HIGH (released) = Bank 0, pin7 LOW = +1, pin8 LOW = +2
-#define BANK_SEL_PIN0 7  // Bit 0
-#define BANK_SEL_PIN1 8  // Bit 1
+// GPIO8 = bit 0, GPIO7 = bit 1; HIGH is the active value
+#define BANK_SEL_PIN0 8  // Bit 0
+#define BANK_SEL_PIN1 7  // Bit 1
 
 // ── Keypad mode (HW_MODE_KEYPAD): pins 2-9 ───────────────────────────────────
 // Physical keypad rows connect to pins 6-9 (driven OUTPUT LOW during scan).
@@ -187,15 +187,15 @@ void setPotIgnored(int potIndex, bool ignored) {
   }
 }
 
-// Read bank from selector pins (active LOW with pull-ups)
-// Pin 7 = bit 0, Pin 8 = bit 1
-// Both released (HIGH) = Bank 0
-// Pin 7 pressed (LOW)  = Bank 1
-// Pin 8 pressed (LOW)  = Bank 2
-// Both pressed (LOW)   = Bank 3
+// Read bank from selector pins (active HIGH)
+// GPIO8 = bit 0, GPIO7 = bit 1
+// Both LOW  = Bank 0
+// GPIO8 HIGH = Bank 1
+// GPIO7 HIGH = Bank 2
+// Both HIGH = Bank 3
 int readBank() {
-  int bit0 = (digitalRead(BANK_SEL_PIN0) == LOW) ? 1 : 0;
-  int bit1 = (digitalRead(BANK_SEL_PIN1) == LOW) ? 1 : 0;
+  int bit0 = (digitalRead(BANK_SEL_PIN0) == HIGH) ? 1 : 0;
+  int bit1 = (digitalRead(BANK_SEL_PIN1) == HIGH) ? 1 : 0;
   return bit0 | (bit1 << 1);
 }
 
@@ -619,10 +619,10 @@ void printMidiMapping() {
     int currentBank = readBank();
     Serial.print("Active Bank: ");
     Serial.print(currentBank);
-    Serial.print(" (Pin7=");
-    Serial.print(digitalRead(BANK_SEL_PIN0) == LOW ? "LOW" : "HIGH");
-    Serial.print(", Pin8=");
-    Serial.print(digitalRead(BANK_SEL_PIN1) == LOW ? "LOW" : "HIGH");
+    Serial.print(" (Pin8=");
+    Serial.print(digitalRead(BANK_SEL_PIN0) == HIGH ? "HIGH" : "LOW");
+    Serial.print(", Pin7=");
+    Serial.print(digitalRead(BANK_SEL_PIN1) == HIGH ? "HIGH" : "LOW");
     Serial.println(")");
 
     Serial.println("\nBUTTONS (5 buttons x 4 banks):");
@@ -995,10 +995,10 @@ void Process_Serial_Commands() {
       if (config.hwMode == HW_MODE_BUTTONS) {
         int bank = readBank();
         int offset = bank * NUM_NOTE_BUTTONS;
-        Serial.print("Bank Sel Pin7: ");
-        Serial.println(digitalRead(BANK_SEL_PIN0) == LOW ? "LOW (1)" : "HIGH (0)");
-        Serial.print("Bank Sel Pin8: ");
-        Serial.println(digitalRead(BANK_SEL_PIN1) == LOW ? "LOW (1)" : "HIGH (0)");
+        Serial.print("Bank Sel Pin8 (bit 0): ");
+        Serial.println(digitalRead(BANK_SEL_PIN0) == HIGH ? "HIGH (1)" : "LOW (0)");
+        Serial.print("Bank Sel Pin7 (bit 1): ");
+        Serial.println(digitalRead(BANK_SEL_PIN1) == HIGH ? "HIGH (1)" : "LOW (0)");
         Serial.print("Active Bank: ");
         Serial.println(bank);
         for (int i = 0; i < NUM_NOTE_BUTTONS; i++) {

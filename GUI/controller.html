@@ -665,7 +665,7 @@
             <button class="btn" id="connectBtn" onclick="connectSerial()">Connect Serial</button>
             <button class="btn btn-danger" id="disconnectBtn" onclick="disconnectSerial()" disabled>Disconnect</button>
             <div class="status disconnected" id="status">Disconnected</div>
-            <button class="btn btn-small" onclick="loadMapping()">Load from Device (/m)</button>
+            <button class="btn btn-small" onclick="loadMapping()">Show Current Mapping (/m)</button>
             <div class="channel-group">
                 <label for="midiChannel">MIDI Ch</label>
                 <select class="channel-select" id="midiChannel"></select>
@@ -779,7 +779,7 @@
                     <button class="btn btn-success btn-small" onclick="saveToDevice()">💾 Save</button>
                     <button class="btn btn-small" onclick="loadFromDevice()">📥 Load</button>
                     <button class="btn btn-warning btn-small" onclick="resetToDefaults()">🔄 Reset</button>
-                    <button class="btn btn-small" onclick="loadMapping()">📋 Show (/m)</button>
+                    <button class="btn btn-small" onclick="loadMapping()">📋 Show Current Mapping</button>
                 </div>
             </div>
         </div>
@@ -988,6 +988,7 @@
                 // Start reading
                 readSerial();
                 setTimeout(() => sendCommand('/v'), 150);
+                setTimeout(() => loadFromDevice(), 500);
 
             } catch (error) {
                 log(`✗ Connection error: ${error.message}`, 'error');

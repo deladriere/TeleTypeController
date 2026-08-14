@@ -77,7 +77,7 @@ After making changes:
 
 - **📥 Load from EEPROM**: Reload saved config from device
 - **🔄 Reset to Defaults**: Restore factory settings
-- **Load from Device (/m)**: View current mappings in console
+- **Show Current Mapping (/m)**: View current mappings in console
 
 ## Keyboard Shortcuts
 
@@ -188,6 +188,5 @@ Dark theme with gradient design
 ---
 
 **Need Help?** Check the main project documentation or open an issue.
-
 
 
