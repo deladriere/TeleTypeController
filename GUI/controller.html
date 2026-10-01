@@ -1145,6 +1145,9 @@
         }
 
         async function saveToDevice() {
+            // The channel dropdown is a browser control until /ch is sent.
+            // Apply it first so Save cannot persist the previous MIDI channel.
+            await sendMidiChannel();
             await sendCommand('/save');
         }
 

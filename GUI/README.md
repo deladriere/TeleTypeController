@@ -70,7 +70,7 @@ open controller.html
 ### 4. Save Configuration
 
 After making changes:
-1. Click **"💾 Save to EEPROM"** to persist changes
+1. Click **"💾 Save to EEPROM"** to apply the selected MIDI channel and persist changes
 2. Device will write to EEPROM and confirm
 
 ### 5. Load/Reset
@@ -188,5 +188,4 @@ Dark theme with gradient design
 ---
 
 **Need Help?** Check the main project documentation or open an issue.
-
 
