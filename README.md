@@ -20,12 +20,13 @@ Firmware v1.0.1 fixes USB startup so the serial upload interface is retained alo
 
 If your controller already has the Teletype firmware, start here. No firmware build or installation is needed to use the GUI.
 
-1. Download this repository (**Code → Download ZIP** on GitHub) and extract it.
+1. Open **[Teletype online](https://deladriere.github.io/TeleTypeController/)** in desktop **Chrome or Edge**. Nothing to download or install.
 2. Connect Teletype to your computer with a USB data cable.
-3. Open [`GUI/index.html`](GUI/index.html) from the extracted folder in **Chrome or Edge**. The GitHub file view displays source code; download the file before opening it.
-4. Click **Connect MIDI** and allow MIDI/SysEx access. If several MIDI devices are available, choose Teletype from the device list.
-5. Wait for the firmware version and connected status. The GUI reads the device’s current mappings. Knob values appear when MIDI messages arrive.
-6. Open **Configure**, edit a button note or pot mapping and click its **Set** button. Click **Save** to keep your applied settings after power-off.
+3. Click **Connect MIDI** and allow MIDI/SysEx access. If several MIDI devices are available, choose Teletype from the device list.
+4. Wait for the firmware version and connected status. The GUI reads the device’s current mappings. Knob values appear when MIDI messages arrive.
+5. Open **Configure**, edit a button note or pot mapping and click its **Set** button. Click **Save** to keep your applied settings after power-off.
+
+You can also download this repository (**Code → Download ZIP**), extract it, and open [`GUI/index.html`](GUI/index.html) locally.
 
 The GUI needs no package installation or frontend build. Keep `index.html`, `style.css`, `protocol.js`, `visual.js` and `app.js` together in the `GUI` folder. Configuration uses USB MIDI SysEx; the monitor reads ordinary MIDI notes, CC and pitch bend.
 
@@ -119,7 +120,7 @@ The local build passed with platform revision `4d1ad09d78445f16688627de0819646fd
 
 ## Hosting the GUI
 
-Keep the firmware and GUI in this repository. With GitHub Pages publishing the repository root, the root `index.html` opens `GUI/index.html`; `/GUI/` also opens the app directly. No separate GUI repository or build pipeline is required. Publish the whole `GUI` app folder, including its CSS and JavaScript. The app includes its device drawing and needs no preview assets.
+The GUI is hosted at **[deladriere.github.io/TeleTypeController](https://deladriere.github.io/TeleTypeController/)**. GitHub Pages publishes the `master` branch from `/` (root). With this configuration, the root `index.html` opens `GUI/index.html`; `/GUI/` also opens the app directly. No separate GUI repository or build pipeline is required. Publish the whole `GUI` app folder, including its CSS and JavaScript. The app includes its device drawing and needs no preview assets.
 
 ## Developer checks
 

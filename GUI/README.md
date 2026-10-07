@@ -4,6 +4,8 @@
 
 ## Run
 
+Open **[Teletype online](https://deladriere.github.io/TeleTypeController/)** in desktop Chrome or Edge.
+
 Open `GUI/index.html` in desktop Chrome or Edge, keeping the CSS and JavaScript alongside it. If MIDI permissions are unavailable on a local file, serve the repository root:
 
 ```sh
