@@ -18,6 +18,7 @@ Visit [http://localhost:8000/GUI/](http://localhost:8000/GUI/). Online hosting m
 
 - `index.html`: page structure and the inline Teletype SVG.
 - `style.css`: styling adapted from the original visual study.
+- `appearance.js`: enclosure palettes and browser-local color preference; no MIDI access.
 - `visual.js`: read-only key flashes, knob indicators and inferred bank display; no gesture handlers or outgoing messages.
 - `protocol.js`: validated SysEx configuration frames and ordinary MIDI interpretation.
 - `app.js`: MIDI ports, configuration handshake and queued configuration requests.

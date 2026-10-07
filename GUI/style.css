@@ -17,3 +17,22 @@ meter::-webkit-meter-optimum-value{background:#54b9ef;border-radius:3px}
 meter::-moz-meter-bar{background:#54b9ef;border-radius:3px}
 meter.unknown{opacity:.3}.knob.unknown .knob-stripe,.knob.unknown [id^="knob-marker"],.knob.unknown [id^="knob-stripe"],.switch.unknown [id^="switch-lever"]{opacity:.25}
 .value-row output{font-size:clamp(38px,4.5vw,62px);letter-spacing:-2px}
+
+/* Local appearance palette. The seven swatches change the drawing only. */
+.color-picker{text-align:center;margin:0 20px 22px;padding:0;border:0}
+.color-picker legend{float:none;width:100%;padding:0;font-size:11px;color:var(--muted)}
+.color-picker legend span{margin:0 6px}.color-picker output{color:var(--text)}
+.color-swatches{display:flex;justify-content:center;flex-wrap:wrap;gap:2px;margin-top:7px}
+.color-swatch{position:relative;display:grid;place-items:center;width:44px;height:44px;padding:0;background:transparent;border:0;border-radius:50%;flex:none}
+.color-swatch::before{content:'';width:25px;height:25px;border-radius:50%;background:var(--swatch);border:1px solid #ffffff38;box-shadow:inset 0 1px 2px #ffffff20}
+.color-swatch[aria-checked=true]::before{outline:2px solid var(--text);outline-offset:4px}
+.color-swatch:hover{background:#ffffff09}.color-swatch:focus-visible{outline:2px solid var(--blue);outline-offset:0}
+.color-note{margin:5px 0 0;color:var(--muted);font-size:10px}
+.stage-caption{padding:0 16px;line-height:1.6}
+a,.activity-label,.mapping-bank h4,.pot-mapping>strong{color:var(--blue)}
+.status-dot,.small-dot,.value-track span,button.primary{background:var(--blue)}
+button.primary{color:#101317}.bank-buttons span.active{border-color:var(--accent-line,#55bdfa80);background:var(--accent-soft,#2c6d8e35);color:var(--text)}
+.control.selected{background:var(--accent-soft,#27384355);border-color:var(--accent-line,#57b9ef38)}
+.control-title output{color:var(--blue)}
+meter::-webkit-meter-optimum-value{background:var(--blue)}meter::-moz-meter-bar{background:var(--blue)}
+@media(max-width:600px){.color-picker{margin:0 12px 22px}.color-note{font-size:9px}}

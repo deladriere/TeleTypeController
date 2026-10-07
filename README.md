@@ -28,7 +28,7 @@ If your controller already has the Teletype firmware, start here. No firmware bu
 
 You can also download this repository (**Code → Download ZIP**), extract it, and open [`GUI/index.html`](GUI/index.html) locally.
 
-The GUI needs no package installation or frontend build. Keep `index.html`, `style.css`, `protocol.js`, `visual.js` and `app.js` together in the `GUI` folder. Configuration uses USB MIDI SysEx; the monitor reads ordinary MIDI notes, CC and pitch bend.
+The GUI needs no package installation or frontend build. Keep `index.html`, `style.css`, `protocol.js`, `appearance.js`, `visual.js` and `app.js` together in the `GUI` folder. Configuration uses USB MIDI SysEx; the monitor reads ordinary MIDI notes, CC and pitch bend.
 
 If MIDI access is unavailable when opening the file directly, serve the repository locally with Python 3:
 
@@ -47,6 +47,8 @@ The **Monitor** tab follows MIDI from the physical controller. Press a key to fl
 - If several keys share a note, the GUI shows the note and a shared-mapping message instead of guessing which key was pressed.
 - Knobs sharing the same CC, or configured for pitch bend, update together; MIDI cannot identify the source knob.
 - The **Configure** tab retains the existing Set, Save, Load and Reset commands.
+
+The **Device color** swatches change the illustrated enclosure, knob caps and matching accents. Choose Red, Beige, Black, White, Blue, Green or Orange. The choice is remembered in this browser only; it does not change the physical device or its settings.
 
 ## Controls and settings
 
