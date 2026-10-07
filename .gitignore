@@ -11,6 +11,10 @@ compile_commands.json
 *.bin
 *.hex
 *.uf2
+!firmware/teletype-*.uf2
+
+# Local visual prototype; the finished GUI is self-contained.
+/GUI/preview/
 
 # Clangd cache/index files
 *.idx
@@ -30,9 +34,9 @@ Thumbs.db
 # IDE files
 *.code-workspace
 .idea/
+.cursor/
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
-
