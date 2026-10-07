@@ -32,7 +32,8 @@
     $('bank-number').textContent=bank===null?'—':String(bank+1).padStart(2,'0');
     document.querySelectorAll('[data-bank]').forEach(el=>el.classList.toggle('active',+el.dataset.bank===bank));
     for(let i=0;i<2;i++){
-      const el=svg.getElementById(`switch-${i+1}`),on=bank!==null&&Boolean(bank&(1<<i));
+      // Physical left switch is bank bit 1; physical right switch is bit 0.
+      const el=svg.getElementById(`switch-${i+1}`),on=bank!==null&&Boolean(bank&(1<<(1-i)));
       el.classList.toggle('unknown',bank===null);
       el.setAttribute('aria-label',bank===null?'Bank switch position unknown':`Bank switch ${i+1}: inferred from last note`);
       svg.getElementById(`switch-lever-${i+1}`).setAttribute('transform',on?'translate(3.1 -4.1)':'translate(0 0)');
