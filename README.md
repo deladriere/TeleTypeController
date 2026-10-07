@@ -146,3 +146,11 @@ The host tests check protocol frames, passive MIDI interpretation, duplicate map
 | [`docs/images/`](docs/images/) | Product image used by this README |
 
 The ready-to-flash UF2 in `firmware/` is included in Git. Other build output, editor settings and local caches are excluded.
+
+## Design credits
+
+Teletype's key and hinge geometry was adapted from Adafruit's [USB MIDI Keyset Controller](https://learn.adafruit.com/midi-keyset) and the earlier [USB Keyset](https://learn.adafruit.com/usb-keyset), with mechanical design by the **Ruiz Brothers**. The original project guides credit the Ruiz Brothers and Liz Clark. Polaxis remodelled the geometry for Teletype.
+
+The original mechanical design files are linked from Adafruit's [CAD Files page](https://learn.adafruit.com/midi-keyset/cad-files). This credit concerns the mechanical design; it does not assign an Adafruit licence to the Teletype firmware or browser app. Third-party software dependencies retain their own licences.
+
+Teletype is a Polaxis product and is not an Adafruit product or endorsement.
